@@ -1,0 +1,19 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "austin-inventory-dashboard",
+  "main": "dist/server/index.js",
+  "compatibility_date": "2026-08-23",
+  "compatibility_flags": ["nodejs_compat"],
+  "no_bundle": true,
+  "assets": {
+    "directory": "dist/client",
+    "binding": "ASSETS"
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "austin-inventory-db",
+      "database_id": "ba9d306d-462f-49cc-a0b6-a94832b6bbdc"
+    }
+  ]
+}

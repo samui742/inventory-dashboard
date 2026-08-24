@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Inventory Lookup</title>
+  <meta name="description" content="Search, add, edit, and check out equipment inventory.">
+  <style>/*__STYLES__*/</style>
+</head>
+<body>
+<main class="app-shell">
+  <header class="topbar">
+    <a class="brand" href="#top"><span class="brand-mark">ID</span><span><strong>Inventory Dashboard</strong><small>LAB OPERATIONS</small></span></a>
+    <div class="topbar-meta"><span class="sync-dot"></span>Single CSV database<span class="meta-rule"></span><span id="generated-date"></span></div>
+  </header>
+  <section class="hero" id="top">
+    <div class="hero-copy"><p class="eyebrow">EQUIPMENT MANAGEMENT</p><h1>Inventory lookup</h1><p class="hero-subtitle">Find equipment by PID, part number, serial, location, availability, vendor, or notes.</p></div>
+    <div class="search-panel"><label for="inventory-search">Search all inventory fields</label><div class="search-box"><span>⌕</span><input id="inventory-search" placeholder="Try “QSFP-100G”, “FVH291” or “LITEON”" autocomplete="off"><button class="clear-search" id="clear-search" aria-label="Clear search">×</button></div><div class="quick-hints"><span>QUICK SEARCH</span><button data-query="QSFP-100G">QSFP-100G</button><button data-query="power supply">power supply</button><button data-query="C9350">C9350</button></div></div>
+  </section>
+  <section class="content-wrap">
+    <div class="metric-grid">
+      <article class="metric-card accent-card"><span class="metric-icon">▣</span><div><small>AVAILABLE UNITS</small><strong id="current-units"></strong></div><p>Ready for assignment</p></article>
+      <article class="metric-card"><span class="metric-icon">≡</span><div><small>EQUIPMENT RECORDS</small><strong id="active-records"></strong></div><p>All manually entered equipment</p></article>
+      <article class="metric-card"><span class="metric-icon">#</span><div><small>SERIALIZED</small><strong id="serialized"></strong></div><p>Records with traceable serial numbers</p></article>
+      <article class="metric-card"><span class="metric-icon">✓</span><div><small>CHECKED OUT UNITS</small><strong id="catalog-match"></strong></div><p>Assigned to a user</p></article>
+    </div>
+    <section class="inventory-card">
+      <div class="inventory-head"><div><p class="eyebrow dark">BROWSE STOCK</p><h2>Inventory records</h2></div><div class="head-actions"><button class="primary-button" id="new-equipment">+ New equipment</button><a class="export-link" href="consolidated/inventory.csv" download>↓ Export CSV</a></div></div>
+      <div class="toolbar"><div class="status-tabs" id="status-tabs"><button class="active" data-status="all">All <span id="all-count"></span></button><button data-status="available">Available <span id="available-count"></span></button><button data-status="infrastructure">Infrastructure <span id="infrastructure-count"></span></button><button data-status="checked-out">Checked out <span id="checked-out-count"></span></button></div><label class="select-wrap"><span>Category</span><select id="category"><option>All categories</option></select></label></div>
+      <div class="result-line" id="result-line"></div>
+      <div class="table-wrap"><table><thead><tr><th>Item</th><th>Identifiers</th><th>Details</th><th>Location</th><th class="qty-col">Qty</th><th>Availability</th><th></th></tr></thead><tbody id="records"></tbody></table></div>
+      <button class="load-more" id="load-more">Show more</button>
+      <div class="empty-state" id="empty" hidden><strong>No matching hardware</strong><p>Try another identifier or clear your filters.</p><button id="clear-filters">Clear filters</button></div>
+    </section>
+    <footer><span>One inventory database</span><span>•</span><span>Sequential entry IDs</span><span class="footer-spacer"></span><a href="#top">Back to top ↑</a></footer>
+  </section>
+</main>
+<div class="form-layer" id="form-layer" hidden>
+  <section class="form-modal" role="dialog" aria-modal="true" aria-labelledby="form-title">
+    <button class="drawer-close" id="form-close" aria-label="Close form">×</button>
+    <p class="eyebrow dark">MANUAL ENTRY</p>
+    <h2 id="form-title">Add new equipment</h2>
+    <p class="form-intro">Part number, serial number, vendor, and notes are optional. Equipment type, name, location, and availability use controlled lists.</p>
+    <form id="equipment-form">
+      <div class="form-grid">
+        <label class="full-field"><span>Equipment type</span><select name="category" id="equipment-type" required><option value="">Loading types…</option></select></label>
+        <label class="full-field"><span>Location</span><select name="location" id="equipment-location" required><option value="">Loading locations…</option></select></label>
+        <label class="full-field"><span>Availability status</span><select name="status" id="equipment-status" required><option value="">Select availability</option><option value="available">Available</option><option value="infrastructure">Infrastructure</option><option value="checked-out">Checked out</option></select></label>
+        <label class="full-field" id="assigned-user-field" hidden><span>Assigned user</span><input name="assignedTo" id="assigned-user" maxlength="120" placeholder="Enter the person using this equipment"></label>
+        <label><span>Equipment name</span><select name="displayName" id="equipment-name" required><option value="">Loading names…</option></select></label>
+        <label><span>Record date</span><input name="recordDate" type="date" required></label>
+        <label><span>Part number / PID (optional)</span><input name="partNumber" list="part-number-options" maxlength="160" autocomplete="off"><datalist id="part-number-options"></datalist></label>
+        <label><span>Serial number (optional)</span><input name="serialNumber" maxlength="160"></label>
+        <label><span>Quantity</span><input name="quantity" type="number" min="1" max="10000" value="1" required></label>
+        <label><span>Vendor (optional)</span><input name="vendor" maxlength="120"></label>
+        <label class="full-field"><span>Notes (optional)</span><textarea name="notes" maxlength="1000" rows="3"></textarea></label>
+      </div>
+      <p class="form-error" id="form-error" role="alert"></p>
+      <div class="form-actions"><button type="button" class="secondary-button" id="form-cancel">Cancel</button><button type="submit" class="primary-button" id="form-submit">Add equipment</button></div>
+    </form>
+  </section>
+</div>
+<div class="drawer-layer" id="drawer-layer" hidden><aside class="drawer" role="dialog" aria-modal="true"><button class="drawer-close" id="drawer-close" aria-label="Close details">×</button><p class="eyebrow dark">RECORD DETAIL</p><h2 id="drawer-title"></h2><div class="drawer-tags" id="drawer-tags"></div><div class="detail-quantity"><small>QUANTITY</small><strong id="drawer-qty"></strong></div><dl id="details"></dl><div class="drawer-actions"><button class="primary-button" id="edit-record">Edit record</button></div></aside></div>
+<script id="inventory-data" type="application/json">/*__DATA__*/</script>
+<script>
+const payload=JSON.parse(document.getElementById('inventory-data').textContent);const records=payload.records;let status='all',category='All categories',query='',limit=24,editingId='';
+const $=id=>document.getElementById(id), esc=value=>String(value??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
+const cat=r=>r.category||'Uncategorized';const statusLabel=value=>value==='checked-out'?'Checked out':value==='infrastructure'?'Infrastructure':value==='available'?'Available':value;const todayString=()=>{const date=new Date(),pad=value=>String(value).padStart(2,'0');return `${date.getFullYear()}-${pad(date.getMonth()+1)}-${pad(date.getDate())}`};
+$('generated-date').textContent=new Date(payload.summary.generatedAt).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
+function updateSummary(){const available=records.filter(r=>r.status==='available'),infrastructure=records.filter(r=>r.status==='infrastructure'),checkedOut=records.filter(r=>r.status==='checked-out');$('current-units').textContent=available.reduce((sum,r)=>sum+Number(r.quantity||0),0);$('active-records').textContent=records.length;$('serialized').textContent=records.filter(r=>r.serialNumber).length;$('catalog-match').textContent=checkedOut.reduce((sum,r)=>sum+Number(r.quantity||0),0);$('available-count').textContent=available.length;$('infrastructure-count').textContent=infrastructure.length;$('checked-out-count').textContent=checkedOut.length;$('all-count').textContent=records.length}
+function updatePartNumbers(){const seen=new Set(),values=[];records.forEach(record=>{const value=String(record.partNumber||'').trim(),key=value.toLowerCase();if(value&&!seen.has(key)){seen.add(key);values.push(value)}});values.sort((a,b)=>a.localeCompare(b,undefined,{numeric:true,sensitivity:'base'}));$('part-number-options').innerHTML=values.map(value=>`<option value="${esc(value)}"></option>`).join('')}
+function searchable(r){return [r.id,r.displayName,r.category,r.location,r.status,r.assignedTo,r.partNumber,r.serialNumber,r.vendor,r.notes].join(' ').toLowerCase()}
+function filtered(){const needle=query.trim().toLowerCase();return records.filter(r=>(status==='all'||r.status===status)&&(category==='All categories'||cat(r)===category)&&(!needle||searchable(r).includes(needle)))}
+function updateCategories(){const values=[...new Set(records.filter(r=>status==='all'||r.status===status).map(cat))].sort();$('category').innerHTML='<option>All categories</option>'+values.map(v=>`<option>${esc(v)}</option>`).join('');$('category').value=category}
+function render(){const found=filtered(),shown=found.slice(0,limit);$('result-line').innerHTML=`<span><strong>${found.length}</strong> records</span>${query?`<span>matching “${esc(query)}”</span>`:''}`;$('records').innerHTML=shown.map(r=>`<tr tabindex="0" data-id="${esc(r.id)}"><td><strong class="item-name">${esc(r.displayName)}</strong><span class="category-tag">${esc(cat(r))}</span></td><td><code>${esc(r.partNumber||'—')}</code><small>${esc(r.serialNumber||'No serial number')}</small></td><td><strong>${esc(r.vendor||'Vendor not listed')}</strong><small>${esc(r.status==='checked-out'&&r.assignedTo?('Assigned to '+r.assignedTo):(r.serialNumber?(r.serialNumber.split(/\r?\n/).length+' serial number(s)'):(r.notes||'No notes')))}</small></td><td><strong>${esc(r.location||'—')}</strong></td><td class="qty-col"><span class="qty-badge">${r.quantity}</span></td><td><span class="availability-pill ${esc(r.status)}">${esc(statusLabel(r.status))}</span></td><td><button class="row-open">→</button></td></tr>`).join('');$('empty').hidden=found.length>0;$('load-more').hidden=shown.length>=found.length;$('load-more').textContent=`Show more · ${found.length-shown.length} remaining`;document.querySelectorAll('#records tr').forEach(row=>{row.onclick=()=>openRecord(row.dataset.id);row.onkeydown=e=>{if(e.key==='Enter')openRecord(row.dataset.id)}})}
+function setStatus(value){status=value;category='All categories';limit=24;document.querySelectorAll('#status-tabs button').forEach(b=>b.classList.toggle('active',b.dataset.status===status));updateCategories();render()}
+function openRecord(id){const r=records.find(item=>item.id===id);if(!r)return;$('drawer-title').textContent=r.displayName;$('drawer-tags').innerHTML=`<span>ID ${esc(r.id)}</span><span>${esc(cat(r))}</span><span class="${esc(r.status)}">${esc(statusLabel(r.status))}</span>`;$('drawer-qty').textContent=r.quantity;const fields=[['Availability',statusLabel(r.status)],['Assigned user',r.assignedTo],['Location',r.location],['Part number',r.partNumber],['Serial number',r.serialNumber],['Vendor',r.vendor],['Record date',r.recordDate||'Date not recorded'],['Notes',r.notes]];$('details').innerHTML=fields.filter(([,v])=>v).map(([k,v])=>`<div><dt>${esc(k)}</dt><dd class="preserve-lines">${esc(v)}</dd></div>`).join('');$('edit-record').dataset.id=r.id;$('edit-record').hidden=false;$('drawer-layer').hidden=false}
+$('inventory-search').oninput=e=>{query=e.target.value;limit=24;render()};$('clear-search').onclick=()=>{$('inventory-search').value='';query='';render()};document.querySelectorAll('[data-query]').forEach(b=>b.onclick=()=>{$('inventory-search').value=b.dataset.query;query=b.dataset.query;render()});document.querySelectorAll('#status-tabs button').forEach(b=>b.onclick=()=>setStatus(b.dataset.status));$('category').onchange=e=>{category=e.target.value;limit=24;render()};$('load-more').onclick=()=>{limit+=24;render()};$('clear-filters').onclick=()=>{$('inventory-search').value='';query='';setStatus('all')};$('drawer-close').onclick=()=>{$('drawer-layer').hidden=true};$('drawer-layer').onclick=e=>{if(e.target===$('drawer-layer'))$('drawer-layer').hidden=true};
+function syncAssignedUser(){const selectedStatus=$('equipment-status').value,checkedOut=selectedStatus==='checked-out',restrictedLocation=checkedOut||selectedStatus==='infrastructure',location=$('equipment-location');$('assigned-user-field').hidden=!checkedOut;$('assigned-user').required=checkedOut;if(!checkedOut)$('assigned-user').value='';[...location.options].forEach(option=>{option.disabled=restrictedLocation&&option.value.toLowerCase()==='stockroom'});if(restrictedLocation&&location.value.toLowerCase()==='stockroom')location.value=''}
+function openForm(record=null){const form=$('equipment-form');form.reset();editingId=record?.id||'';$('form-title').textContent=record?'Edit equipment':'Add new equipment';$('form-submit').textContent=record?'Save changes':'Add equipment';form.elements.recordDate.value=record?.recordDate||todayString();form.elements.quantity.value=record?.quantity||'1';if(record){['category','location','status','assignedTo','displayName','partNumber','serialNumber','vendor','notes'].forEach(name=>{form.elements[name].value=record[name]||''})}else{form.elements.status.value='available';form.elements.location.value=[...form.elements.location.options].find(option=>option.value.toLowerCase()==='stockroom')?.value||''}syncAssignedUser();if(record?.assignedTo)form.elements.assignedTo.value=record.assignedTo;$('form-error').textContent='';$('drawer-layer').hidden=true;$('form-layer').hidden=false;form.elements.category.focus()}
+function closeForm(){$('form-layer').hidden=true;editingId=''}
+$('equipment-status').onchange=syncAssignedUser;$('new-equipment').onclick=()=>openForm();$('edit-record').onclick=e=>openForm(records.find(r=>r.id===e.currentTarget.dataset.id));$('form-close').onclick=closeForm;$('form-cancel').onclick=closeForm;$('form-layer').onclick=e=>{if(e.target===$('form-layer'))closeForm()};
+$('equipment-form').onsubmit=async e=>{e.preventDefault();const form=e.currentTarget,button=$('form-submit'),recordId=editingId,isEdit=Boolean(recordId);$('form-error').textContent='';button.disabled=true;button.textContent='Saving…';try{const data=Object.fromEntries(new FormData(form));data.quantity=Number(data.quantity);const response=await fetch(isEdit?`/api/equipment/${encodeURIComponent(recordId)}`:'/api/equipment',{method:isEdit?'PUT':'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)});const result=await response.json();if(!response.ok)throw new Error(result.error||'Equipment could not be saved');if(isEdit){const index=records.findIndex(r=>r.id===recordId);if(index>=0)records[index]=result.record}else{records.push(result.record)}updateSummary();updateCategories();updatePartNumbers();category='All categories';$('category').value=category;query='';$('inventory-search').value='';limit=24;render();closeForm()}catch(error){$('form-error').textContent=error.message}finally{button.disabled=false;button.textContent=isEdit?'Save changes':'Add equipment'}};
+async function loadInventoryRecords(){try{const response=await fetch('/api/inventory');if(!response.ok)return;const saved=await response.json();records.splice(0,records.length,...saved);updateSummary();updateCategories();updatePartNumbers();render()}catch(error){console.warn('Inventory could not be loaded')}}
+async function loadEquipmentTypes(){try{const response=await fetch('/api/equipment-types');if(!response.ok)throw new Error();const types=await response.json();$('equipment-type').innerHTML='<option value="">Select a type</option>'+types.map(type=>`<option>${esc(type)}</option>`).join('')}catch(error){$('equipment-type').innerHTML='<option value="">Types unavailable</option>'}}
+async function loadEquipmentNames(){try{const response=await fetch('/api/equipment-names');if(!response.ok)throw new Error();const names=await response.json();$('equipment-name').innerHTML='<option value="">Select a name</option>'+names.map(name=>`<option>${esc(name)}</option>`).join('')}catch(error){$('equipment-name').innerHTML='<option value="">Names unavailable</option>'}}
+async function loadLocations(){try{const response=await fetch('/api/locations');if(!response.ok)throw new Error();const locations=await response.json();$('equipment-location').innerHTML='<option value="">Select a location</option>'+locations.map(location=>`<option>${esc(location)}</option>`).join('');syncAssignedUser()}catch(error){$('equipment-location').innerHTML='<option value="">Locations unavailable</option>'}}
+document.onkeydown=e=>{if(e.key==='Escape'){$('drawer-layer').hidden=true;closeForm()}};updateSummary();updateCategories();updatePartNumbers();render();loadEquipmentTypes();loadEquipmentNames();loadLocations();loadInventoryRecords();
+</script>
+</body>
+</html>
