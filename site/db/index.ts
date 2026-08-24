@@ -1,11 +1,23 @@
-import { env } from "cloudflare:workers";
+import "server-only";
 
-export function getD1() {
-  if (!env.DB) {
-    throw new Error(
-      "Cloudflare D1 binding `DB` is unavailable"
+import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+
+let client: SupabaseClient | undefined;
+
+function requiredEnvironmentValue(name: "SUPABASE_URL" | "SUPABASE_SERVICE_ROLE_KEY") {
+  const value = process.env[name]?.trim();
+  if (!value) throw new Error(`${name} is not configured`);
+  return value;
+}
+
+export function getSupabase() {
+  if (!client) {
+    client = createClient(
+      requiredEnvironmentValue("SUPABASE_URL"),
+      requiredEnvironmentValue("SUPABASE_SERVICE_ROLE_KEY"),
+      { auth: { autoRefreshToken: false, persistSession: false } },
     );
   }
 
-  return env.DB;
+  return client;
 }

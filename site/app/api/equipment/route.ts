@@ -1,72 +1,75 @@
-import { getD1 } from "@/db";
+import { getSupabase } from "@/db";
 import {
   type DatabaseRecord,
-  type EquipmentInput,
-  INVENTORY_SELECT,
+  INVENTORY_COLUMNS,
+  toDatabaseValues,
   toInventoryRecord,
   validateEquipmentInput,
 } from "@/lib/inventory";
 
-export const runtime = "edge";
-
-async function readRecord(id: number) {
-  const record = await getD1()
-    .prepare(`${INVENTORY_SELECT} WHERE id = ?`)
-    .bind(id)
-    .first<DatabaseRecord>();
-  return record ? toInventoryRecord(record) : null;
+function errorMessage(error: unknown, fallback: string) {
+  return error instanceof Error ? error.message : fallback;
 }
 
-function inputValues(input: EquipmentInput) {
-  return [
-    input.status,
-    input.assignedTo,
-    input.displayName,
-    input.recordDate,
-    input.category,
-    input.location,
-    input.partNumber,
-    input.serialNumber,
-    input.quantity,
-    input.vendor,
-    input.notes,
-  ] as const;
+async function requestBody(request: Request) {
+  try {
+    return await request.json() as Record<string, unknown>;
+  } catch {
+    throw new Error("Invalid request body");
+  }
 }
 
 export async function POST(request: Request) {
+  let input;
   try {
-    const input = validateEquipmentInput(await request.json());
-    const result = await getD1().prepare(`
-        INSERT INTO equipment (
-          status, assigned_to, display_name, record_date, category, location,
-          part_number, serial_number, quantity, vendor, notes
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-      `).bind(...inputValues(input)).run();
-    const record = await readRecord(Number(result.meta.last_row_id));
-    return Response.json({ record }, { status: 201 });
+    input = validateEquipmentInput(await requestBody(request));
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Equipment could not be saved";
-    return Response.json({ error: message }, { status: 400 });
+    return Response.json({ error: errorMessage(error, "Equipment could not be saved") }, { status: 400 });
   }
+
+  const { data, error } = await getSupabase()
+    .from("equipment")
+    .insert(toDatabaseValues(input))
+    .select(INVENTORY_COLUMNS)
+    .single();
+
+  if (error) {
+    console.error("Equipment insert failed", error);
+    return Response.json({ error: "Equipment could not be saved" }, { status: 500 });
+  }
+
+  return Response.json(
+    { record: toInventoryRecord(data as unknown as DatabaseRecord) },
+    { status: 201 },
+  );
 }
 
 export async function PUT(request: Request) {
+  let id: number;
+  let input;
   try {
-    const body = await request.json() as Record<string, unknown>;
-    const id = Number(body.id);
+    const body = await requestBody(request);
+    id = Number(body.id);
     if (!Number.isInteger(id) || id < 1) throw new Error("Equipment record was not found");
-    if (!(await readRecord(id))) throw new Error("Equipment record was not found");
-    const input = validateEquipmentInput(body);
-    await getD1().prepare(`
-        UPDATE equipment SET
-          status = ?, assigned_to = ?, display_name = ?, record_date = ?, category = ?,
-          location = ?, part_number = ?, serial_number = ?, quantity = ?, vendor = ?, notes = ?
-        WHERE id = ?
-      `).bind(...inputValues(input), id).run();
-    const record = await readRecord(id);
-    return Response.json({ record });
+    input = validateEquipmentInput(body);
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Equipment could not be saved";
-    return Response.json({ error: message }, { status: 400 });
+    return Response.json({ error: errorMessage(error, "Equipment could not be saved") }, { status: 400 });
   }
+
+  const { data, error } = await getSupabase()
+    .from("equipment")
+    .update(toDatabaseValues(input))
+    .eq("id", id)
+    .select(INVENTORY_COLUMNS)
+    .maybeSingle();
+
+  if (error) {
+    console.error("Equipment update failed", error);
+    return Response.json({ error: "Equipment could not be saved" }, { status: 500 });
+  }
+  if (!data) {
+    return Response.json({ error: "Equipment record was not found" }, { status: 404 });
+  }
+
+  return Response.json({ record: toInventoryRecord(data as unknown as DatabaseRecord) });
 }

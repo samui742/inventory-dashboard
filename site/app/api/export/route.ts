@@ -1,7 +1,5 @@
-import { getD1 } from "@/db";
-import { INVENTORY_SELECT, type DatabaseRecord, toInventoryRecord } from "@/lib/inventory";
-
-export const runtime = "edge";
+import { getSupabase } from "@/db";
+import { INVENTORY_COLUMNS, type DatabaseRecord, toInventoryRecord } from "@/lib/inventory";
 
 const HEADERS = [
   "id", "status", "assignedTo", "displayName", "recordDate", "category",
@@ -15,8 +13,15 @@ function csvCell(value: unknown) {
 }
 
 export async function GET() {
-  const result = await getD1().prepare(`${INVENTORY_SELECT} ORDER BY id`).all<DatabaseRecord>();
-  const records = result.results.map(toInventoryRecord);
+  const { data, error } = await getSupabase()
+    .from("equipment")
+    .select(INVENTORY_COLUMNS)
+    .order("id");
+  if (error) {
+    console.error("Inventory export failed", error);
+    return Response.json({ error: "Inventory could not be exported" }, { status: 500 });
+  }
+  const records = (data as unknown as DatabaseRecord[]).map(toInventoryRecord);
   const csv = [
     HEADERS.map(csvCell).join(","),
     ...records.map((record) => HEADERS.map((header) => csvCell(record[header])).join(",")),

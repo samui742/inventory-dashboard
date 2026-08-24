@@ -45,27 +45,57 @@ export type InventoryRecord = {
 
 export type EquipmentInput = Omit<InventoryRecord, "id">;
 
-export type DatabaseRecord = Omit<InventoryRecord, "id"> & { id: number };
+export type DatabaseRecord = {
+  id: number;
+  status: InventoryStatus;
+  assigned_to: string;
+  display_name: string;
+  record_date: string;
+  category: string;
+  location: string;
+  part_number: string;
+  serial_number: string;
+  quantity: number;
+  vendor: string;
+  notes: string;
+};
 
-export const INVENTORY_SELECT = `
-  SELECT
-    id,
-    status,
-    assigned_to AS assignedTo,
-    display_name AS displayName,
-    record_date AS recordDate,
-    category,
-    location,
-    part_number AS partNumber,
-    serial_number AS serialNumber,
-    quantity,
-    vendor,
-    notes
-  FROM equipment
-`;
+export const INVENTORY_COLUMNS = [
+  "id", "status", "assigned_to", "display_name", "record_date", "category",
+  "location", "part_number", "serial_number", "quantity", "vendor", "notes",
+].join(",");
 
 export function toInventoryRecord(record: DatabaseRecord): InventoryRecord {
-  return { ...record, id: String(record.id) };
+  return {
+    id: String(record.id),
+    status: record.status,
+    assignedTo: record.assigned_to,
+    displayName: record.display_name,
+    recordDate: record.record_date,
+    category: record.category,
+    location: record.location,
+    partNumber: record.part_number,
+    serialNumber: record.serial_number,
+    quantity: record.quantity,
+    vendor: record.vendor,
+    notes: record.notes,
+  };
+}
+
+export function toDatabaseValues(input: EquipmentInput): Omit<DatabaseRecord, "id"> {
+  return {
+    status: input.status,
+    assigned_to: input.assignedTo,
+    display_name: input.displayName,
+    record_date: input.recordDate,
+    category: input.category,
+    location: input.location,
+    part_number: input.partNumber,
+    serial_number: input.serialNumber,
+    quantity: input.quantity,
+    vendor: input.vendor,
+    notes: input.notes,
+  };
 }
 
 export function validateEquipmentInput(value: unknown): EquipmentInput {

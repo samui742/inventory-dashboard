@@ -1,12 +1,14 @@
-import { getD1 } from "@/db";
-import { INVENTORY_SELECT, type DatabaseRecord, toInventoryRecord } from "@/lib/inventory";
-
-export const runtime = "edge";
+import { getSupabase } from "@/db";
+import { INVENTORY_COLUMNS, type DatabaseRecord, toInventoryRecord } from "@/lib/inventory";
 
 export async function GET() {
   try {
-    const result = await getD1().prepare(`${INVENTORY_SELECT} ORDER BY id`).all<DatabaseRecord>();
-    return Response.json(result.results.map(toInventoryRecord), {
+    const { data, error } = await getSupabase()
+      .from("equipment")
+      .select(INVENTORY_COLUMNS)
+      .order("id");
+    if (error) throw error;
+    return Response.json((data as unknown as DatabaseRecord[]).map(toInventoryRecord), {
       headers: { "Cache-Control": "no-store" },
     });
   } catch (error) {
