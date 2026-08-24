@@ -1,0 +1,25 @@
+# OS and editor files
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Local environment and secrets
+.env
+.env.*
+!.env.example
+!site/.env.example
+*.pem
+
+# Generated caches and build outputs
+site/node_modules/
+site/.tools/
+site/.next/
+site/.vinext/
+site/.wrangler/
+site/dist/
+site/coverage/
+site/tsconfig.tsbuildinfo
+
+# Logs
+*.log
