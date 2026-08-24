@@ -1,29 +1,10 @@
-export const EQUIPMENT_TYPES = [
-  "Power supply",
-  "Switch",
-  "Cable",
-  "FRU uplink",
-  "PoE load",
-  "SFP",
-  "IXIA chassis",
-  "IXIA card",
-  "AC Source",
-  "Other",
-] as const;
+import equipmentNames from "../../config/equipment-names.json";
+import equipmentTypes from "../../config/equipment-types.json";
+import locations from "../../config/locations.json";
 
-export const EQUIPMENT_NAMES = [
-  "Edgar5",
-  "PWR-C1-1900WHV-T",
-  "PWR-C2-850WAC-I",
-  "XGS12",
-  "XGS2",
-  "XM12",
-  "XMR4S",
-  "PWR-C2-500WAC-I",
-  "PWR-C2-1600WHV-I",
-] as const;
-
-export const LOCATIONS = ["Stockroom", "Station 1", "Station 2", "Station 3"] as const;
+export const EQUIPMENT_TYPES: readonly string[] = equipmentTypes;
+export const EQUIPMENT_NAMES: readonly string[] = equipmentNames;
+export const LOCATIONS: readonly string[] = locations;
 export const STATUSES = ["available", "infrastructure", "checked-out"] as const;
 
 export type InventoryStatus = (typeof STATUSES)[number];
