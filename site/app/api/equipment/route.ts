@@ -73,3 +73,27 @@ export async function PUT(request: Request) {
 
   return Response.json({ record: toInventoryRecord(data as unknown as DatabaseRecord) });
 }
+
+export async function DELETE(request: Request) {
+  const id = Number(new URL(request.url).searchParams.get("id"));
+  if (!Number.isInteger(id) || id < 1) {
+    return Response.json({ error: "Equipment record was not found" }, { status: 400 });
+  }
+
+  const { data, error } = await getSupabase()
+    .from("equipment")
+    .delete()
+    .eq("id", id)
+    .select("id")
+    .maybeSingle();
+
+  if (error) {
+    console.error("Equipment delete failed", error);
+    return Response.json({ error: "Equipment could not be deleted" }, { status: 500 });
+  }
+  if (!data) {
+    return Response.json({ error: "Equipment record was not found" }, { status: 404 });
+  }
+
+  return Response.json({ id: String(data.id) });
+}

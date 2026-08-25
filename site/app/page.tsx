@@ -66,6 +66,8 @@ export default function Home() {
   const [form, setForm] = useState<EquipmentInput>(newEquipment);
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState("");
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState("");
 
   async function loadInventory() {
     try {
@@ -165,6 +167,7 @@ export default function Home() {
       notes: record.notes,
     } : newEquipment());
     setFormError("");
+    setDeleteError("");
     setFormOpen(true);
   }
 
@@ -207,6 +210,30 @@ export default function Home() {
       setFormError(error instanceof Error ? error.message : "Equipment could not be saved");
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function deleteEquipment() {
+    if (!selected || deleting) return;
+    const confirmed = window.confirm(
+      "Delete " + selected.displayName + " (ID " + selected.id + ")? This action cannot be undone.",
+    );
+    if (!confirmed) return;
+
+    setDeleting(true);
+    setDeleteError("");
+    try {
+      const response = await fetch("/api/equipment?id=" + encodeURIComponent(selected.id), {
+        method: "DELETE",
+      });
+      const result = await response.json() as { id?: string; error?: string };
+      if (!response.ok || !result.id) throw new Error(result.error || "Equipment could not be deleted");
+      setRecords((current) => current.filter((record) => record.id !== selected.id));
+      setSelected(null);
+    } catch (error) {
+      setDeleteError(error instanceof Error ? error.message : "Equipment could not be deleted");
+    } finally {
+      setDeleting(false);
     }
   }
 
@@ -293,7 +320,8 @@ export default function Home() {
           ["PID", selected.pid], ["MFG Part number", selected.mfgPartNumber], ["Serial number", selected.serialNumber], ["Vendor", selected.vendor],
           ["Record date", selected.recordDate], ["Notes", selected.notes],
         ].filter(([, value]) => value).map(([label, value]) => <div key={label}><dt>{label}</dt><dd className="preserve-lines">{value}</dd></div>)}</dl>
-        <div className="drawer-actions"><button className="primary-button" onClick={() => openForm(selected)}>Edit record</button></div>
+        <p className="form-error" role="alert">{deleteError}</p>
+        <div className="drawer-actions"><button className="danger-button" onClick={() => void deleteEquipment()} disabled={deleting}>{deleting ? "Deleting…" : "Delete item"}</button><button className="primary-button" onClick={() => openForm(selected)} disabled={deleting}>Edit record</button></div>
       </aside></div>}
 
       {formOpen && <div className="form-layer" role="presentation" onMouseDown={(event) => { if (event.currentTarget === event.target) setFormOpen(false); }}><section className="form-modal" role="dialog" aria-modal="true" aria-labelledby="form-title">

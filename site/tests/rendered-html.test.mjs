@@ -18,11 +18,14 @@ test("ships the Supabase-backed inventory workflow", async () => {
   assert.match(page, /Search all inventory fields/);
   assert.match(page, /Export CSV/);
   assert.match(page, /Add new equipment/);
+  assert.match(page, /Delete item/);
+  assert.match(page, /window\.confirm/);
   assert.match(page, /PID \(optional\)/);
   assert.match(page, /MFG Part number \(optional\)/);
   assert.match(page, /checked-out/);
   assert.match(layout, /Inventory Lookup/);
   assert.match(database, /SUPABASE_SERVICE_ROLE_KEY/);
+  assert.match(await readFile(new URL("app/api/equipment/route.ts", root), "utf8"), /export async function DELETE/);
   assert.match(inventory, /\.\.\/\.\.\/config\/equipment-names\.json/);
   assert.match(inventory, /\.\.\/\.\.\/config\/equipment-types\.json/);
   assert.match(inventory, /\.\.\/\.\.\/config\/locations\.json/);
