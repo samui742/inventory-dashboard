@@ -18,7 +18,8 @@ test("ships the Supabase-backed inventory workflow", async () => {
   assert.match(page, /Search all inventory fields/);
   assert.match(page, /Export CSV/);
   assert.match(page, /Add new equipment/);
-  assert.match(page, /Part number \/ PID/);
+  assert.match(page, /PID \(optional\)/);
+  assert.match(page, /MFG Part number \(optional\)/);
   assert.match(page, /checked-out/);
   assert.match(layout, /Inventory Lookup/);
   assert.match(database, /SUPABASE_SERVICE_ROLE_KEY/);
@@ -26,6 +27,8 @@ test("ships the Supabase-backed inventory workflow", async () => {
   assert.match(inventory, /\.\.\/\.\.\/config\/equipment-types\.json/);
   assert.match(inventory, /\.\.\/\.\.\/config\/locations\.json/);
   assert.match(schema, /create table if not exists public\.equipment/);
+  assert.match(schema, /pid text not null default 'n\/a'/);
+  assert.match(schema, /mfg_part_number text not null default/);
   assert.match(schema, /enable row level security/);
   assert.equal((seed.match(/^\s*\(\d+,'/gm) ?? []).length, 19);
 });

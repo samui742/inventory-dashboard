@@ -17,7 +17,8 @@ export type InventoryRecord = {
   recordDate: string;
   category: string;
   location: string;
-  partNumber: string;
+  pid: string;
+  mfgPartNumber: string;
   serialNumber: string;
   quantity: number;
   vendor: string;
@@ -34,7 +35,8 @@ export type DatabaseRecord = {
   record_date: string;
   category: string;
   location: string;
-  part_number: string;
+  pid: string;
+  mfg_part_number: string;
   serial_number: string;
   quantity: number;
   vendor: string;
@@ -43,7 +45,7 @@ export type DatabaseRecord = {
 
 export const INVENTORY_COLUMNS = [
   "id", "status", "assigned_to", "display_name", "record_date", "category",
-  "location", "part_number", "serial_number", "quantity", "vendor", "notes",
+  "location", "pid", "mfg_part_number", "serial_number", "quantity", "vendor", "notes",
 ].join(",");
 
 export function toInventoryRecord(record: DatabaseRecord): InventoryRecord {
@@ -55,7 +57,8 @@ export function toInventoryRecord(record: DatabaseRecord): InventoryRecord {
     recordDate: record.record_date,
     category: record.category,
     location: record.location,
-    partNumber: record.part_number,
+    pid: record.pid,
+    mfgPartNumber: record.mfg_part_number,
     serialNumber: record.serial_number,
     quantity: record.quantity,
     vendor: record.vendor,
@@ -71,7 +74,8 @@ export function toDatabaseValues(input: EquipmentInput): Omit<DatabaseRecord, "i
     record_date: input.recordDate,
     category: input.category,
     location: input.location,
-    part_number: input.partNumber,
+    pid: input.pid,
+    mfg_part_number: input.mfgPartNumber,
     serial_number: input.serialNumber,
     quantity: input.quantity,
     vendor: input.vendor,
@@ -88,7 +92,8 @@ export function validateEquipmentInput(value: unknown): EquipmentInput {
   const recordDate = String(input.recordDate ?? "").trim();
   const category = String(input.category ?? "").trim();
   const location = String(input.location ?? "").trim();
-  const partNumber = String(input.partNumber ?? "").trim();
+  const pid = String(input.pid ?? "").trim() || "n/a";
+  const mfgPartNumber = String(input.mfgPartNumber ?? "").trim();
   const serialNumber = String(input.serialNumber ?? "").trim();
   const quantity = Number(input.quantity);
   const vendor = String(input.vendor ?? "").trim();
@@ -108,7 +113,7 @@ export function validateEquipmentInput(value: unknown): EquipmentInput {
   if (!Number.isInteger(quantity) || quantity < 1 || quantity > 10000) {
     throw new Error("Quantity must be between 1 and 10,000");
   }
-  if (partNumber.length > 160 || serialNumber.length > 160 || vendor.length > 120 || notes.length > 1000) {
+  if (pid.length > 160 || mfgPartNumber.length > 160 || serialNumber.length > 160 || vendor.length > 120 || notes.length > 1000) {
     throw new Error("One or more fields are too long");
   }
 
@@ -119,7 +124,8 @@ export function validateEquipmentInput(value: unknown): EquipmentInput {
     recordDate,
     category,
     location,
-    partNumber,
+    pid,
+    mfgPartNumber,
     serialNumber,
     quantity,
     vendor,

@@ -3,7 +3,7 @@ import { INVENTORY_COLUMNS, type DatabaseRecord, toInventoryRecord } from "@/lib
 
 const HEADERS = [
   "id", "status", "assignedTo", "displayName", "recordDate", "category",
-  "location", "partNumber", "serialNumber", "quantity", "vendor", "notes",
+  "location", "pid", "mfgPartNumber", "serialNumber", "quantity", "vendor", "notes",
 ] as const;
 
 function csvCell(value: unknown) {

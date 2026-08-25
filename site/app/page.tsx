@@ -33,7 +33,8 @@ function newEquipment(): EquipmentInput {
     recordDate: todayString(),
     category: "",
     location: LOCATIONS.find((value) => value.toLowerCase() === "stockroom") ?? "",
-    partNumber: "",
+    pid: "n/a",
+    mfgPartNumber: "",
     serialNumber: "",
     quantity: 1,
     vendor: "",
@@ -113,10 +114,10 @@ export default function Home() {
       .map(categoryName),
   )).sort(), [records, status]);
 
-  const partNumbers = useMemo(() => {
+  const mfgPartNumbers = useMemo(() => {
     const values = new Map<string, string>();
     records.forEach((record) => {
-      const value = record.partNumber.trim();
+      const value = record.mfgPartNumber.trim();
       if (value && !values.has(value.toLowerCase())) values.set(value.toLowerCase(), value);
     });
     return [...values.values()].sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: "base" }));
@@ -130,7 +131,7 @@ export default function Home() {
       if (!needle) return true;
       return [
         record.id, record.displayName, record.category, record.location, record.status,
-        record.assignedTo, record.partNumber, record.serialNumber, record.vendor, record.notes,
+        record.assignedTo, record.pid, record.mfgPartNumber, record.serialNumber, record.vendor, record.notes,
       ].join(" ").toLowerCase().includes(needle);
     });
   }, [records, query, status, category]);
@@ -156,7 +157,8 @@ export default function Home() {
       recordDate: dateInputValue(record.recordDate),
       category: record.category,
       location: record.location,
-      partNumber: record.partNumber,
+      pid: record.pid,
+      mfgPartNumber: record.mfgPartNumber,
       serialNumber: record.serialNumber,
       quantity: record.quantity,
       vendor: record.vendor,
@@ -229,7 +231,7 @@ export default function Home() {
         <div className="hero-copy">
           <p className="eyebrow">EQUIPMENT MANAGEMENT</p>
           <h1>Inventory lookup</h1>
-          <p className="hero-subtitle">Find equipment by PID, part number, serial, location, availability, vendor, or notes.</p>
+          <p className="hero-subtitle">Find equipment by PID, MFG part number, serial, location, availability, vendor, or notes.</p>
         </div>
         <div className="search-panel">
           <label htmlFor="inventory-search">Search all inventory fields</label>
@@ -269,7 +271,7 @@ export default function Home() {
               <div className="table-wrap"><table><thead><tr><th>Item</th><th>Identifiers</th><th>Details</th><th>Location</th><th className="qty-col">Qty</th><th>Availability</th><th aria-label="Open details" /></tr></thead><tbody>
                 {shown.map((record) => <tr key={record.id} onClick={() => setSelected(record)} tabIndex={0} onKeyDown={(event) => { if (event.key === "Enter") setSelected(record); }}>
                   <td><strong className="item-name">{record.displayName}</strong><span className="category-tag">{categoryName(record)}</span></td>
-                  <td><code>{record.partNumber || "—"}</code><small>{record.serialNumber || "No serial number"}</small></td>
+                  <td><code>{record.pid || "n/a"}</code><small>{record.mfgPartNumber || "No MFG part number"} · {record.serialNumber || "No serial number"}</small></td>
                   <td><strong>{record.vendor || "Vendor not listed"}</strong><small>{record.status === "checked-out" && record.assignedTo ? `Assigned to ${record.assignedTo}` : record.notes || "No notes"}</small></td>
                   <td><strong>{record.location || "—"}</strong></td><td className="qty-col"><span className="qty-badge">{record.quantity}</span></td>
                   <td><span className={`availability-pill ${record.status}`}>{statusLabel(record.status)}</span></td>
@@ -288,7 +290,7 @@ export default function Home() {
         <div className="detail-quantity"><small>QUANTITY</small><strong>{selected.quantity}</strong></div>
         <dl>{[
           ["Availability", statusLabel(selected.status)], ["Assigned user", selected.assignedTo], ["Location", selected.location],
-          ["Part number", selected.partNumber], ["Serial number", selected.serialNumber], ["Vendor", selected.vendor],
+          ["PID", selected.pid], ["MFG Part number", selected.mfgPartNumber], ["Serial number", selected.serialNumber], ["Vendor", selected.vendor],
           ["Record date", selected.recordDate], ["Notes", selected.notes],
         ].filter(([, value]) => value).map(([label, value]) => <div key={label}><dt>{label}</dt><dd className="preserve-lines">{value}</dd></div>)}</dl>
         <div className="drawer-actions"><button className="primary-button" onClick={() => openForm(selected)}>Edit record</button></div>
@@ -296,7 +298,7 @@ export default function Home() {
 
       {formOpen && <div className="form-layer" role="presentation" onMouseDown={(event) => { if (event.currentTarget === event.target) setFormOpen(false); }}><section className="form-modal" role="dialog" aria-modal="true" aria-labelledby="form-title">
         <button className="drawer-close" onClick={() => setFormOpen(false)} aria-label="Close form">×</button><p className="eyebrow dark">MANUAL ENTRY</p><h2 id="form-title">{editingId ? "Edit equipment" : "Add new equipment"}</h2>
-        <p className="form-intro">Part number, serial number, vendor, and notes are optional. Equipment type, name, location, and availability use controlled lists.</p>
+        <p className="form-intro">PID, MFG part number, serial number, vendor, and notes are optional. Equipment type, name, location, and availability use controlled lists.</p>
         <form onSubmit={saveEquipment}><div className="form-grid">
           <label className="full-field"><span>Equipment type</span><select required value={form.category} onChange={(event) => setField("category", event.target.value)}><option value="">Select a type</option>{EQUIPMENT_TYPES.map((value) => <option key={value}>{value}</option>)}</select></label>
           <label className="full-field"><span>Location</span><select required value={form.location} onChange={(event) => setField("location", event.target.value)}><option value="">Select a location</option>{LOCATIONS.map((value) => <option key={value} disabled={(form.status === "checked-out" || form.status === "infrastructure") && value.toLowerCase() === "stockroom"}>{value}</option>)}</select></label>
@@ -304,7 +306,8 @@ export default function Home() {
           {form.status === "checked-out" && <label className="full-field"><span>Assigned user</span><input required maxLength={120} value={form.assignedTo} onChange={(event) => setField("assignedTo", event.target.value)} placeholder="Enter the person using this equipment" /></label>}
           <label><span>Equipment name</span><select required value={form.displayName} onChange={(event) => setField("displayName", event.target.value)}><option value="">Select a name</option>{EQUIPMENT_NAMES.map((value) => <option key={value}>{value}</option>)}</select></label>
           <label><span>Record date</span><input required type="date" value={form.recordDate} onChange={(event) => setField("recordDate", event.target.value)} /></label>
-          <label><span>Part number / PID (optional)</span><input list="part-number-options" maxLength={160} autoComplete="off" value={form.partNumber} onChange={(event) => setField("partNumber", event.target.value)} /><datalist id="part-number-options">{partNumbers.map((value) => <option key={value} value={value} />)}</datalist></label>
+          <label><span>PID (optional)</span><input maxLength={160} value={form.pid} onChange={(event) => setField("pid", event.target.value)} placeholder="n/a" /></label>
+          <label><span>MFG Part number (optional)</span><input list="mfg-part-number-options" maxLength={160} autoComplete="off" value={form.mfgPartNumber} onChange={(event) => setField("mfgPartNumber", event.target.value)} /><datalist id="mfg-part-number-options">{mfgPartNumbers.map((value) => <option key={value} value={value} />)}</datalist></label>
           <label><span>Serial number (optional)</span><input maxLength={160} value={form.serialNumber} onChange={(event) => setField("serialNumber", event.target.value)} /></label>
           <label><span>Quantity</span><input required type="number" min={1} max={10000} value={form.quantity} onChange={(event) => setField("quantity", Number(event.target.value))} /></label>
           <label><span>Vendor (optional)</span><input maxLength={120} value={form.vendor} onChange={(event) => setField("vendor", event.target.value)} /></label>

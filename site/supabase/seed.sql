@@ -1,6 +1,6 @@
 insert into public.equipment (
   id, status, assigned_to, display_name, record_date, category, location,
-  part_number, serial_number, quantity, vendor, notes
+  mfg_part_number, serial_number, quantity, vendor, notes
 ) values
   (1,'checked-out','tuppayok','Edgar5','2026-08-23','PoE load','Station 1','53-0005-01','123456',1,'Reach',''),
   (2,'infrastructure','','XGS12','2026-08-23','IXIA chassis','Station 2','XGS12-HD16','98765',1,'Keysight',''),
@@ -28,7 +28,7 @@ on conflict (id) do update set
   record_date = excluded.record_date,
   category = excluded.category,
   location = excluded.location,
-  part_number = excluded.part_number,
+  mfg_part_number = excluded.mfg_part_number,
   serial_number = excluded.serial_number,
   quantity = excluded.quantity,
   vendor = excluded.vendor,
