@@ -27,6 +27,11 @@ export type InventoryRecord = {
 
 export type EquipmentInput = Omit<InventoryRecord, "id">;
 
+export const CSV_HEADERS = [
+  "id", "status", "assignedTo", "displayName", "recordDate", "category",
+  "location", "pid", "mfgPartNumber", "serialNumber", "quantity", "vendor", "notes",
+] as const;
+
 export type DatabaseRecord = {
   id: number;
   status: InventoryStatus;

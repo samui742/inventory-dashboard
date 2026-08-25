@@ -1,6 +1,7 @@
 "use client";
 
 import { type FormEvent, useEffect, useMemo, useState } from "react";
+import type { ImportRowResult } from "@/lib/csv-import";
 import {
   EQUIPMENT_NAMES,
   EQUIPMENT_TYPES,
@@ -11,6 +12,14 @@ import {
 } from "@/lib/inventory";
 
 const PAGE_SIZE = 24;
+
+type CsvImportPreview = {
+  totalRows: number;
+  readyCount: number;
+  duplicateCount: number;
+  invalidCount: number;
+  rows: ImportRowResult[];
+};
 
 function todayString() {
   const date = new Date();
@@ -68,6 +77,13 @@ export default function Home() {
   const [formError, setFormError] = useState("");
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState("");
+  const [importOpen, setImportOpen] = useState(false);
+  const [importFileName, setImportFileName] = useState("");
+  const [importCsvText, setImportCsvText] = useState("");
+  const [importPreview, setImportPreview] = useState<CsvImportPreview | null>(null);
+  const [importBusy, setImportBusy] = useState(false);
+  const [importError, setImportError] = useState("");
+  const [importNotice, setImportNotice] = useState("");
 
   async function loadInventory() {
     try {
@@ -104,6 +120,7 @@ export default function Home() {
       if (event.key === "Escape") {
         setSelected(null);
         setFormOpen(false);
+        setImportOpen(false);
       }
     };
     document.addEventListener("keydown", closeOnEscape);
@@ -237,6 +254,77 @@ export default function Home() {
     }
   }
 
+  function openImport() {
+    setImportFileName("");
+    setImportCsvText("");
+    setImportPreview(null);
+    setImportError("");
+    setImportOpen(true);
+  }
+
+  async function previewCsv(file?: File) {
+    if (!file) return;
+    setImportFileName(file.name);
+    setImportCsvText("");
+    setImportPreview(null);
+    setImportError("");
+    setImportBusy(true);
+    try {
+      const csvText = await file.text();
+      const response = await fetch("/api/import", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "preview", csvText }),
+      });
+      const result = await response.json() as { preview?: CsvImportPreview; error?: string };
+      if (!response.ok || !result.preview) throw new Error(result.error || "The CSV could not be previewed");
+      setImportCsvText(csvText);
+      setImportPreview(result.preview);
+    } catch (error) {
+      setImportError(error instanceof Error ? error.message : "The CSV could not be previewed");
+    } finally {
+      setImportBusy(false);
+    }
+  }
+
+  async function importCsv() {
+    if (!importPreview?.readyCount || !importCsvText || importBusy) return;
+    setImportBusy(true);
+    setImportError("");
+    try {
+      const response = await fetch("/api/import", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "import", csvText: importCsvText }),
+      });
+      const result = await response.json() as {
+        preview?: CsvImportPreview;
+        records?: InventoryRecord[];
+        error?: string;
+      };
+      if (!response.ok || !result.preview || !result.records) {
+        throw new Error(result.error || "The equipment could not be imported");
+      }
+      if (!result.records.length) {
+        setImportPreview(result.preview);
+        setImportError("No new records remain to import. Review the duplicate results.");
+        return;
+      }
+      setRecords((current) => [...current, ...result.records!]
+        .sort((left, right) => Number(left.id) - Number(right.id)));
+      setImportNotice("Imported " + result.records.length + " equipment record" + (result.records.length === 1 ? "" : "s") + ". Duplicate and invalid rows were skipped.");
+      setImportOpen(false);
+      setImportCsvText("");
+      setImportPreview(null);
+      setQuery("");
+      selectStatus("all");
+    } catch (error) {
+      setImportError(error instanceof Error ? error.message : "The equipment could not be imported");
+    } finally {
+      setImportBusy(false);
+    }
+  }
+
   const statusTabs: Array<[InventoryStatus | "all", string, number]> = [
     ["all", "All", records.length],
     ["available", "Available", available.length],
@@ -281,8 +369,9 @@ export default function Home() {
         <section className="inventory-card" aria-labelledby="inventory-title">
           <div className="inventory-head">
             <div><p className="eyebrow dark">BROWSE STOCK</p><h2 id="inventory-title">Inventory records</h2></div>
-            <div className="head-actions"><button className="primary-button" onClick={() => openForm()}>+ New equipment</button><a className="export-link" href="/api/export" download>↓ Export CSV</a></div>
+            <div className="head-actions"><button className="primary-button" onClick={() => openForm()}>+ New equipment</button><button className="secondary-button" onClick={openImport}>Import CSV</button><a className="export-link" href="/api/export" download>↓ Export CSV</a></div>
           </div>
+          {importNotice && <p className="import-notice" role="status">{importNotice}</p>}
           <div className="toolbar">
             <div className="status-tabs" aria-label="Availability status">
               {statusTabs.map(([value, label, count]) => <button key={value} className={status === value ? "active" : ""} onClick={() => selectStatus(value)}>{label} <span>{count}</span></button>)}
@@ -323,6 +412,33 @@ export default function Home() {
         <p className="form-error" role="alert">{deleteError}</p>
         <div className="drawer-actions"><button className="danger-button" onClick={() => void deleteEquipment()} disabled={deleting}>{deleting ? "Deleting…" : "Delete item"}</button><button className="primary-button" onClick={() => openForm(selected)} disabled={deleting}>Edit record</button></div>
       </aside></div>}
+
+      {importOpen && <div className="form-layer" role="presentation" onMouseDown={(event) => { if (event.currentTarget === event.target && !importBusy) setImportOpen(false); }}><section className="form-modal import-modal" role="dialog" aria-modal="true" aria-labelledby="import-title">
+        <button className="drawer-close" onClick={() => setImportOpen(false)} aria-label="Close CSV import" disabled={importBusy}>×</button>
+        <p className="eyebrow dark">BULK ENTRY</p><h2 id="import-title">Import equipment CSV</h2>
+        <p className="form-intro">Use the same 13 columns as inventory.csv. Uploaded ID values are ignored; new sequential IDs are assigned by the database.</p>
+        <div className="import-upload">
+          <label className="file-picker"><span>CSV file</span><input type="file" accept=".csv,text/csv" disabled={importBusy} onChange={(event) => void previewCsv(event.target.files?.[0])} /></label>
+          <a className="export-link" href="/api/export" download>Download current CSV</a>
+        </div>
+        {importFileName && <p className="selected-file">Selected: <strong>{importFileName}</strong></p>}
+        {importBusy && !importPreview && <div className="import-loading" role="status">Checking rows and duplicates…</div>}
+        <p className="form-error" role="alert">{importError}</p>
+        {importPreview && <>
+          <div className="import-summary" aria-label="CSV import summary">
+            <div><strong>{importPreview.totalRows}</strong><span>Total rows</span></div>
+            <div className="ready"><strong>{importPreview.readyCount}</strong><span>Ready</span></div>
+            <div className="duplicate"><strong>{importPreview.duplicateCount}</strong><span>Duplicates</span></div>
+            <div className="invalid"><strong>{importPreview.invalidCount}</strong><span>Invalid</span></div>
+          </div>
+          <p className="import-rule">Existing serial numbers are duplicates. Rows without serial numbers are duplicates only when every equipment field matches.</p>
+          <div className="import-table-wrap"><table className="import-table"><thead><tr><th>Row</th><th>Equipment</th><th>Serial</th><th>Result</th></tr></thead><tbody>
+            {importPreview.rows.slice(0, 100).map((row) => <tr key={row.row}><td>{row.row}</td><td>{row.displayName || "—"}</td><td>{row.serialNumber || "—"}</td><td><span className={"import-status " + row.status}>{row.status}</span><small>{row.reason}</small></td></tr>)}
+          </tbody></table></div>
+          {importPreview.rows.length > 100 && <p className="import-rule">Showing the first 100 of {importPreview.rows.length} checked rows.</p>}
+        </>}
+        <div className="form-actions"><button type="button" className="secondary-button" onClick={() => setImportOpen(false)} disabled={importBusy}>Cancel</button><button type="button" className="primary-button" onClick={() => void importCsv()} disabled={importBusy || !importPreview?.readyCount}>{importBusy && importPreview ? "Importing…" : "Import " + (importPreview?.readyCount ?? 0) + " new records"}</button></div>
+      </section></div>}
 
       {formOpen && <div className="form-layer" role="presentation" onMouseDown={(event) => { if (event.currentTarget === event.target) setFormOpen(false); }}><section className="form-modal" role="dialog" aria-modal="true" aria-labelledby="form-title">
         <button className="drawer-close" onClick={() => setFormOpen(false)} aria-label="Close form">×</button><p className="eyebrow dark">MANUAL ENTRY</p><h2 id="form-title">{editingId ? "Edit equipment" : "Add new equipment"}</h2>

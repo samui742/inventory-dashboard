@@ -26,6 +26,15 @@ test("ships the Supabase-backed inventory workflow", async () => {
   assert.match(layout, /Inventory Lookup/);
   assert.match(database, /SUPABASE_SERVICE_ROLE_KEY/);
   assert.match(await readFile(new URL("app/api/equipment/route.ts", root), "utf8"), /export async function DELETE/);
+  const importRoute = await readFile(new URL("app/api/import/route.ts", root), "utf8");
+  const csvImport = await readFile(new URL("lib/csv-import.ts", root), "utf8");
+  assert.match(page, /Import equipment CSV/);
+  assert.match(page, /Duplicate and invalid rows were skipped/);
+  assert.match(importRoute, /analyzeCsvImport/);
+  assert.match(importRoute, /action === "preview"/);
+  assert.match(csvImport, /serial:/);
+  assert.match(csvImport, /existing record ID/);
+  assert.match(csvImport, /uploaded row/);
   assert.match(inventory, /\.\.\/\.\.\/config\/equipment-names\.json/);
   assert.match(inventory, /\.\.\/\.\.\/config\/equipment-types\.json/);
   assert.match(inventory, /\.\.\/\.\.\/config\/locations\.json/);

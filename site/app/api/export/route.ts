@@ -1,10 +1,5 @@
 import { getSupabase } from "@/db";
-import { INVENTORY_COLUMNS, type DatabaseRecord, toInventoryRecord } from "@/lib/inventory";
-
-const HEADERS = [
-  "id", "status", "assignedTo", "displayName", "recordDate", "category",
-  "location", "pid", "mfgPartNumber", "serialNumber", "quantity", "vendor", "notes",
-] as const;
+import { CSV_HEADERS, INVENTORY_COLUMNS, type DatabaseRecord, toInventoryRecord } from "@/lib/inventory";
 
 function csvCell(value: unknown) {
   const text = String(value ?? "");
@@ -23,8 +18,8 @@ export async function GET() {
   }
   const records = (data as unknown as DatabaseRecord[]).map(toInventoryRecord);
   const csv = [
-    HEADERS.map(csvCell).join(","),
-    ...records.map((record) => HEADERS.map((header) => csvCell(record[header])).join(",")),
+    CSV_HEADERS.map(csvCell).join(","),
+    ...records.map((record) => CSV_HEADERS.map((header) => csvCell(record[header])).join(",")),
   ].join("\r\n");
   return new Response(`\uFEFF${csv}`, {
     headers: {
