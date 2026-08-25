@@ -416,10 +416,10 @@ export default function Home() {
       {importOpen && <div className="form-layer" role="presentation" onMouseDown={(event) => { if (event.currentTarget === event.target && !importBusy) setImportOpen(false); }}><section className="form-modal import-modal" role="dialog" aria-modal="true" aria-labelledby="import-title">
         <button className="drawer-close" onClick={() => setImportOpen(false)} aria-label="Close CSV import" disabled={importBusy}>×</button>
         <p className="eyebrow dark">BULK ENTRY</p><h2 id="import-title">Import equipment CSV</h2>
-        <p className="form-intro">Use the same 13 columns as inventory.csv. Uploaded ID values are ignored; new sequential IDs are assigned by the database.</p>
+        <p className="form-intro">Use the same 13 columns as inventory.csv. Select a file to check duplicates before importing. Uploaded ID values are ignored; new sequential IDs are assigned by the database.</p>
         <div className="import-upload">
-          <label className="file-picker"><span>CSV file</span><input type="file" accept=".csv,text/csv" disabled={importBusy} onChange={(event) => void previewCsv(event.target.files?.[0])} /></label>
-          <a className="export-link" href="/api/export" download>Download current CSV</a>
+          <label className="csv-select-button"><span>{importBusy ? "Checking CSV…" : importFileName ? "Choose another CSV" : "Select CSV to import"}</span><input className="file-input-hidden" type="file" accept=".csv,text/csv" disabled={importBusy} onChange={(event) => void previewCsv(event.target.files?.[0])} /></label>
+          <a className="export-link" href="/api/export" download>Download CSV template</a>
         </div>
         {importFileName && <p className="selected-file">Selected: <strong>{importFileName}</strong></p>}
         {importBusy && !importPreview && <div className="import-loading" role="status">Checking rows and duplicates…</div>}
@@ -437,7 +437,7 @@ export default function Home() {
           </tbody></table></div>
           {importPreview.rows.length > 100 && <p className="import-rule">Showing the first 100 of {importPreview.rows.length} checked rows.</p>}
         </>}
-        <div className="form-actions"><button type="button" className="secondary-button" onClick={() => setImportOpen(false)} disabled={importBusy}>Cancel</button><button type="button" className="primary-button" onClick={() => void importCsv()} disabled={importBusy || !importPreview?.readyCount}>{importBusy && importPreview ? "Importing…" : "Import " + (importPreview?.readyCount ?? 0) + " new records"}</button></div>
+        <div className="form-actions"><button type="button" className="secondary-button" onClick={() => setImportOpen(false)} disabled={importBusy}>Cancel</button><button type="button" className="primary-button" onClick={() => void importCsv()} disabled={importBusy || !importPreview?.readyCount}>{importBusy && importPreview ? "Importing…" : importPreview ? "Import " + importPreview.readyCount + " ready records" : "Select a CSV first"}</button></div>
       </section></div>}
 
       {formOpen && <div className="form-layer" role="presentation" onMouseDown={(event) => { if (event.currentTarget === event.target) setFormOpen(false); }}><section className="form-modal" role="dialog" aria-modal="true" aria-labelledby="form-title">

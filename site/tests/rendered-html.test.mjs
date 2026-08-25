@@ -29,6 +29,8 @@ test("ships the Supabase-backed inventory workflow", async () => {
   const importRoute = await readFile(new URL("app/api/import/route.ts", root), "utf8");
   const csvImport = await readFile(new URL("lib/csv-import.ts", root), "utf8");
   assert.match(page, /Import equipment CSV/);
+  assert.match(page, /Select CSV to import/);
+  assert.match(page, /Select a CSV first/);
   assert.match(page, /Duplicate and invalid rows were skipped/);
   assert.match(importRoute, /analyzeCsvImport/);
   assert.match(importRoute, /action === "preview"/);
