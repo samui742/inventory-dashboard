@@ -16,6 +16,8 @@ test("ships the Supabase-backed inventory workflow", async () => {
 
   assert.match(page, /Inventory lookup/);
   assert.match(page, /Search all inventory fields/);
+  assert.match(page, /filteredAvailable\.reduce/);
+  assert.match(page, /filteredCheckedOut\.reduce/);
   assert.match(page, /Export CSV/);
   assert.match(page, /Add new equipment/);
   assert.match(page, /Delete item/);

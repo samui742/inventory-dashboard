@@ -158,6 +158,8 @@ export default function Home() {
   const available = records.filter((record) => record.status === "available");
   const infrastructure = records.filter((record) => record.status === "infrastructure");
   const checkedOut = records.filter((record) => record.status === "checked-out");
+  const filteredAvailable = filtered.filter((record) => record.status === "available");
+  const filteredCheckedOut = filtered.filter((record) => record.status === "checked-out");
   const shown = filtered.slice(0, limit);
 
   function selectStatus(value: InventoryStatus | "all") {
@@ -360,10 +362,10 @@ export default function Home() {
 
       <section className="content-wrap">
         <div className="metric-grid" aria-label="Inventory summary">
-          <article className="metric-card accent-card"><div><small>AVAILABLE UNITS</small><strong>{available.reduce((sum, record) => sum + Number(record.quantity || 0), 0)}</strong></div><p>Ready for assignment</p></article>
-          <article className="metric-card"><div><small>EQUIPMENT RECORDS</small><strong>{records.length}</strong></div><p>All manually entered equipment</p></article>
-          <article className="metric-card"><div><small>SERIALIZED</small><strong>{records.filter((record) => record.serialNumber).length}</strong></div><p>Records with traceable serial numbers</p></article>
-          <article className="metric-card"><div><small>CHECKED OUT UNITS</small><strong>{checkedOut.reduce((sum, record) => sum + Number(record.quantity || 0), 0)}</strong></div><p>Assigned to a user</p></article>
+          <article className="metric-card accent-card"><div><small>AVAILABLE UNITS</small><strong>{filteredAvailable.reduce((sum, record) => sum + Number(record.quantity || 0), 0)}</strong></div><p>Ready for assignment</p></article>
+          <article className="metric-card"><div><small>EQUIPMENT RECORDS</small><strong>{filtered.length}</strong></div><p>Matching inventory records</p></article>
+          <article className="metric-card"><div><small>SERIALIZED</small><strong>{filtered.filter((record) => record.serialNumber).length}</strong></div><p>Records with traceable serial numbers</p></article>
+          <article className="metric-card"><div><small>CHECKED OUT UNITS</small><strong>{filteredCheckedOut.reduce((sum, record) => sum + Number(record.quantity || 0), 0)}</strong></div><p>Assigned to a user</p></article>
         </div>
 
         <section className="inventory-card" aria-labelledby="inventory-title">
