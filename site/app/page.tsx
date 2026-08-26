@@ -3,10 +3,10 @@
 import { type FormEvent, useEffect, useMemo, useState } from "react";
 import type { ImportRowResult } from "@/lib/csv-import";
 import {
-  EQUIPMENT_NAMES,
-  EQUIPMENT_TYPES,
-  LOCATIONS,
+  DEFAULT_INVENTORY_OPTIONS,
   type EquipmentInput,
+  type InventoryOptionGroup,
+  type InventoryOptions,
   type InventoryRecord,
   type InventoryStatus,
 } from "@/lib/inventory";
@@ -20,6 +20,22 @@ type CsvImportPreview = {
   invalidCount: number;
   rows: ImportRowResult[];
 };
+
+const OPTION_GROUPS: Array<{
+  group: InventoryOptionGroup;
+  label: string;
+  placeholder: string;
+  helper: string;
+}> = [
+  { group: "equipmentTypes", label: "Equipment type", placeholder: "Example: Chamber", helper: "Used to categorize equipment." },
+  { group: "locations", label: "Location", placeholder: "Example: Cabinet A3", helper: "Station or cabinet name." },
+  { group: "statuses", label: "Availability status", placeholder: "Example: Under repair", helper: "Spaces are converted to hyphens." },
+  { group: "equipmentNames", label: "Equipment name", placeholder: "Example: Edgar6", helper: "Controlled equipment model or name." },
+];
+
+function emptyOptionDrafts(): Record<InventoryOptionGroup, string> {
+  return { equipmentTypes: "", locations: "", statuses: "", equipmentNames: "" };
+}
 
 function todayString() {
   const date = new Date();
@@ -41,7 +57,7 @@ function newEquipment(): EquipmentInput {
     displayName: "",
     recordDate: todayString(),
     category: "",
-    location: LOCATIONS.find((value) => value.toLowerCase() === "stockroom") ?? "",
+    location: DEFAULT_INVENTORY_OPTIONS.locations.find((value) => value.toLowerCase() === "stockroom") ?? "",
     pid: "n/a",
     mfgPartNumber: "",
     serialNumber: "",
@@ -53,8 +69,11 @@ function newEquipment(): EquipmentInput {
 
 function statusLabel(value: InventoryStatus) {
   if (value === "checked-out") return "Checked out";
-  if (value === "infrastructure") return "Infrastructure";
-  return "Available";
+  return value
+    .split(/[-_]+/)
+    .filter(Boolean)
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(" ");
 }
 
 function categoryName(record: InventoryRecord) {
@@ -84,6 +103,12 @@ export default function Home() {
   const [importBusy, setImportBusy] = useState(false);
   const [importError, setImportError] = useState("");
   const [importNotice, setImportNotice] = useState("");
+  const [inventoryOptions, setInventoryOptions] = useState<InventoryOptions>(DEFAULT_INVENTORY_OPTIONS);
+  const [optionsOpen, setOptionsOpen] = useState(false);
+  const [optionDrafts, setOptionDrafts] = useState<Record<InventoryOptionGroup, string>>(emptyOptionDrafts);
+  const [optionSaving, setOptionSaving] = useState<InventoryOptionGroup | "">("");
+  const [optionError, setOptionError] = useState("");
+  const [optionNotice, setOptionNotice] = useState("");
 
   async function loadInventory() {
     try {
@@ -116,11 +141,24 @@ export default function Home() {
     return () => { active = false; };
   }, []);
   useEffect(() => {
+    let active = true;
+    fetch("/api/options", { cache: "no-store" })
+      .then((response) => {
+        if (!response.ok) throw new Error();
+        return response.json() as Promise<InventoryOptions>;
+      })
+      .then((options) => { if (active) setInventoryOptions(options); })
+      .catch(() => { /* JSON defaults remain available if options cannot load. */ });
+    return () => { active = false; };
+  }, []);
+
+  useEffect(() => {
     const closeOnEscape = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
         setSelected(null);
         setFormOpen(false);
         setImportOpen(false);
+        setOptionsOpen(false);
       }
     };
     document.addEventListener("keydown", closeOnEscape);
@@ -155,9 +193,10 @@ export default function Home() {
     });
   }, [records, query, status, category]);
 
-  const available = records.filter((record) => record.status === "available");
-  const infrastructure = records.filter((record) => record.status === "infrastructure");
-  const checkedOut = records.filter((record) => record.status === "checked-out");
+  const statusValues = useMemo(
+    () => Array.from(new Set([...inventoryOptions.statuses, ...records.map((record) => record.status)])),
+    [inventoryOptions.statuses, records],
+  );
   const filteredAvailable = filtered.filter((record) => record.status === "available");
   const filteredCheckedOut = filtered.filter((record) => record.status === "checked-out");
   const shown = filtered.slice(0, limit);
@@ -327,11 +366,50 @@ export default function Home() {
     }
   }
 
+  function openOptions() {
+    setOptionDrafts(emptyOptionDrafts());
+    setOptionError("");
+    setOptionNotice("");
+    setOptionsOpen(true);
+  }
+
+  async function addOption(group: InventoryOptionGroup) {
+    const value = optionDrafts[group].trim();
+    if (!value || optionSaving) return;
+    setOptionSaving(group);
+    setOptionError("");
+    setOptionNotice("");
+    try {
+      const response = await fetch("/api/options", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ group, value }),
+      });
+      const result = await response.json() as {
+        options?: InventoryOptions;
+        value?: string;
+        error?: string;
+      };
+      if (!response.ok || !result.options || !result.value) {
+        throw new Error(result.error || "The option could not be added");
+      }
+      setInventoryOptions(result.options);
+      setOptionDrafts((current) => ({ ...current, [group]: "" }));
+      setOptionNotice(statusLabel(result.value) + " was added.");
+    } catch (error) {
+      setOptionError(error instanceof Error ? error.message : "The option could not be added");
+    } finally {
+      setOptionSaving("");
+    }
+  }
+
   const statusTabs: Array<[InventoryStatus | "all", string, number]> = [
     ["all", "All", records.length],
-    ["available", "Available", available.length],
-    ["infrastructure", "Infrastructure", infrastructure.length],
-    ["checked-out", "Checked out", checkedOut.length],
+    ...statusValues.map((value) => [
+      value,
+      statusLabel(value),
+      records.filter((record) => record.status === value).length,
+    ] as [InventoryStatus, string, number]),
   ];
 
   return (
@@ -371,7 +449,7 @@ export default function Home() {
         <section className="inventory-card" aria-labelledby="inventory-title">
           <div className="inventory-head">
             <div><p className="eyebrow dark">BROWSE STOCK</p><h2 id="inventory-title">Inventory records</h2></div>
-            <div className="head-actions"><button className="primary-button" onClick={() => openForm()}>+ New equipment</button><button className="secondary-button" onClick={openImport}>Import CSV</button><a className="export-link" href="/api/export" download>↓ Export CSV</a></div>
+            <div className="head-actions"><button className="primary-button" onClick={() => openForm()}>+ New equipment</button><button className="secondary-button" onClick={openOptions}>Manage options</button><button className="secondary-button" onClick={openImport}>Import CSV</button><a className="export-link" href="/api/export" download>↓ Export CSV</a></div>
           </div>
           {importNotice && <p className="import-notice" role="status">{importNotice}</p>}
           <div className="toolbar">
@@ -415,6 +493,23 @@ export default function Home() {
         <div className="drawer-actions"><button className="danger-button" onClick={() => void deleteEquipment()} disabled={deleting}>{deleting ? "Deleting…" : "Delete item"}</button><button className="primary-button" onClick={() => openForm(selected)} disabled={deleting}>Edit record</button></div>
       </aside></div>}
 
+      {optionsOpen && <div className="form-layer" role="presentation" onMouseDown={(event) => { if (event.currentTarget === event.target && !optionSaving) setOptionsOpen(false); }}><section className="form-modal options-modal" role="dialog" aria-modal="true" aria-labelledby="options-title">
+        <button className="drawer-close" onClick={() => setOptionsOpen(false)} aria-label="Close option manager" disabled={Boolean(optionSaving)}>×</button>
+        <p className="eyebrow dark">CONTROLLED LISTS</p><h2 id="options-title">Manage form options</h2>
+        <p className="form-intro">Add values to the required equipment fields. New options are stored in the cloud database and become available immediately.</p>
+        <div className="options-grid">
+          {OPTION_GROUPS.map(({ group, label, placeholder, helper }) => <form className="option-card" key={group} onSubmit={(event) => { event.preventDefault(); void addOption(group); }}>
+            <label><span>{label}</span><input required maxLength={group === "statuses" ? 60 : group === "equipmentNames" ? 160 : 120} value={optionDrafts[group]} onChange={(event) => setOptionDrafts((current) => ({ ...current, [group]: event.target.value }))} placeholder={placeholder} /></label>
+            <p>{helper}</p>
+            <div className="option-card-actions"><span>{inventoryOptions[group].length} current</span><button className="primary-button" type="submit" disabled={Boolean(optionSaving) || !optionDrafts[group].trim()}>{optionSaving === group ? "Adding…" : "Add"}</button></div>
+            <details><summary>View current options</summary><div className="option-value-list">{inventoryOptions[group].map((value) => <span key={value}>{group === "statuses" ? statusLabel(value) : value}</span>)}</div></details>
+          </form>)}
+        </div>
+        <p className="option-success" role="status">{optionNotice}</p>
+        <p className="form-error" role="alert">{optionError}</p>
+        <div className="form-actions"><button className="secondary-button" type="button" onClick={() => setOptionsOpen(false)} disabled={Boolean(optionSaving)}>Close</button></div>
+      </section></div>}
+
       {importOpen && <div className="form-layer" role="presentation" onMouseDown={(event) => { if (event.currentTarget === event.target && !importBusy) setImportOpen(false); }}><section className="form-modal import-modal" role="dialog" aria-modal="true" aria-labelledby="import-title">
         <button className="drawer-close" onClick={() => setImportOpen(false)} aria-label="Close CSV import" disabled={importBusy}>×</button>
         <p className="eyebrow dark">BULK ENTRY</p><h2 id="import-title">Import equipment CSV</h2>
@@ -446,11 +541,11 @@ export default function Home() {
         <button className="drawer-close" onClick={() => setFormOpen(false)} aria-label="Close form">×</button><p className="eyebrow dark">MANUAL ENTRY</p><h2 id="form-title">{editingId ? "Edit equipment" : "Add new equipment"}</h2>
         <p className="form-intro">PID, MFG part number, serial number, vendor, and notes are optional. Equipment type, name, location, and availability use controlled lists.</p>
         <form onSubmit={saveEquipment}><div className="form-grid">
-          <label className="full-field"><span>Equipment type</span><select required value={form.category} onChange={(event) => setField("category", event.target.value)}><option value="">Select a type</option>{EQUIPMENT_TYPES.map((value) => <option key={value}>{value}</option>)}</select></label>
-          <label className="full-field"><span>Location</span><select required value={form.location} onChange={(event) => setField("location", event.target.value)}><option value="">Select a location</option>{LOCATIONS.map((value) => <option key={value} disabled={(form.status === "checked-out" || form.status === "infrastructure") && value.toLowerCase() === "stockroom"}>{value}</option>)}</select></label>
-          <label className="full-field"><span>Availability status</span><select required value={form.status} onChange={(event) => changeStatus(event.target.value as InventoryStatus)}><option value="available">Available</option><option value="infrastructure">Infrastructure</option><option value="checked-out">Checked out</option></select></label>
+          <label className="full-field"><span>Equipment type</span><select required value={form.category} onChange={(event) => setField("category", event.target.value)}><option value="">Select a type</option>{inventoryOptions.equipmentTypes.map((value) => <option key={value}>{value}</option>)}</select></label>
+          <label className="full-field"><span>Location</span><select required value={form.location} onChange={(event) => setField("location", event.target.value)}><option value="">Select a location</option>{inventoryOptions.locations.map((value) => <option key={value} disabled={(form.status === "checked-out" || form.status === "infrastructure") && value.toLowerCase() === "stockroom"}>{value}</option>)}</select></label>
+          <label className="full-field"><span>Availability status</span><select required value={form.status} onChange={(event) => changeStatus(event.target.value as InventoryStatus)}>{inventoryOptions.statuses.map((value) => <option key={value} value={value}>{statusLabel(value)}</option>)}</select></label>
           {form.status === "checked-out" && <label className="full-field"><span>Assigned user</span><input required maxLength={120} value={form.assignedTo} onChange={(event) => setField("assignedTo", event.target.value)} placeholder="Enter the person using this equipment" /></label>}
-          <label><span>Equipment name</span><select required value={form.displayName} onChange={(event) => setField("displayName", event.target.value)}><option value="">Select a name</option>{EQUIPMENT_NAMES.map((value) => <option key={value}>{value}</option>)}</select></label>
+          <label><span>Equipment name</span><select required value={form.displayName} onChange={(event) => setField("displayName", event.target.value)}><option value="">Select a name</option>{inventoryOptions.equipmentNames.map((value) => <option key={value}>{value}</option>)}</select></label>
           <label><span>Record date</span><input required type="date" value={form.recordDate} onChange={(event) => setField("recordDate", event.target.value)} /></label>
           <label><span>PID (optional)</span><input maxLength={160} value={form.pid} onChange={(event) => setField("pid", event.target.value)} placeholder="n/a" /></label>
           <label><span>MFG Part number (optional)</span><input list="mfg-part-number-options" maxLength={160} autoComplete="off" value={form.mfgPartNumber} onChange={(event) => setField("mfgPartNumber", event.target.value)} /><datalist id="mfg-part-number-options">{mfgPartNumbers.map((value) => <option key={value} value={value} />)}</datalist></label>

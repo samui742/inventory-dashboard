@@ -1,4 +1,5 @@
 import { getSupabase } from "@/db";
+import { getInventoryOptions } from "@/lib/managed-options";
 import {
   type DatabaseRecord,
   INVENTORY_COLUMNS,
@@ -22,7 +23,7 @@ async function requestBody(request: Request) {
 export async function POST(request: Request) {
   let input;
   try {
-    input = validateEquipmentInput(await requestBody(request));
+    input = validateEquipmentInput(await requestBody(request), await getInventoryOptions());
   } catch (error) {
     return Response.json({ error: errorMessage(error, "Equipment could not be saved") }, { status: 400 });
   }
@@ -51,7 +52,7 @@ export async function PUT(request: Request) {
     const body = await requestBody(request);
     id = Number(body.id);
     if (!Number.isInteger(id) || id < 1) throw new Error("Equipment record was not found");
-    input = validateEquipmentInput(body);
+    input = validateEquipmentInput(body, await getInventoryOptions());
   } catch (error) {
     return Response.json({ error: errorMessage(error, "Equipment could not be saved") }, { status: 400 });
   }

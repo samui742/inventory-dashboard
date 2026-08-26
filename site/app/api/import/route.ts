@@ -1,5 +1,6 @@
 import { getSupabase } from "@/db";
 import { analyzeCsvImport } from "@/lib/csv-import";
+import { getInventoryOptions } from "@/lib/managed-options";
 import {
   INVENTORY_COLUMNS,
   type DatabaseRecord,
@@ -35,7 +36,7 @@ export async function POST(request: Request) {
     const csvText = String(body.csvText ?? "");
     if (!["preview", "import"].includes(action)) throw new Error("Invalid import action");
 
-    const analysis = analyzeCsvImport(csvText, await inventoryRecords());
+    const analysis = analyzeCsvImport(csvText, await inventoryRecords(), await getInventoryOptions());
     const preview = {
       totalRows: analysis.totalRows,
       readyCount: analysis.readyCount,

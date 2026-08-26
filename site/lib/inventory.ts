@@ -7,7 +7,23 @@ export const EQUIPMENT_NAMES: readonly string[] = equipmentNames;
 export const LOCATIONS: readonly string[] = locations;
 export const STATUSES = ["available", "infrastructure", "checked-out"] as const;
 
-export type InventoryStatus = (typeof STATUSES)[number];
+export type InventoryStatus = string;
+
+export type InventoryOptions = {
+  equipmentTypes: string[];
+  locations: string[];
+  statuses: string[];
+  equipmentNames: string[];
+};
+
+export type InventoryOptionGroup = keyof InventoryOptions;
+
+export const DEFAULT_INVENTORY_OPTIONS: InventoryOptions = {
+  equipmentTypes: [...EQUIPMENT_TYPES],
+  locations: [...LOCATIONS],
+  statuses: [...STATUSES],
+  equipmentNames: [...EQUIPMENT_NAMES],
+};
 
 export type InventoryRecord = {
   id: string;
@@ -88,7 +104,10 @@ export function toDatabaseValues(input: EquipmentInput): Omit<DatabaseRecord, "i
   };
 }
 
-export function validateEquipmentInput(value: unknown): EquipmentInput {
+export function validateEquipmentInput(
+  value: unknown,
+  options: InventoryOptions = DEFAULT_INVENTORY_OPTIONS,
+): EquipmentInput {
   if (!value || typeof value !== "object") throw new Error("Invalid request body");
   const input = value as Record<string, unknown>;
   const status = String(input.status ?? "").trim().toLowerCase() as InventoryStatus;
@@ -104,10 +123,10 @@ export function validateEquipmentInput(value: unknown): EquipmentInput {
   const vendor = String(input.vendor ?? "").trim();
   const notes = String(input.notes ?? "").trim();
 
-  if (!(STATUSES as readonly string[]).includes(status)) throw new Error("Select a valid availability status");
-  if (!(EQUIPMENT_TYPES as readonly string[]).includes(category)) throw new Error("Select a valid equipment type");
-  if (!(EQUIPMENT_NAMES as readonly string[]).includes(displayName)) throw new Error("Select a valid equipment name");
-  if (!(LOCATIONS as readonly string[]).includes(location)) throw new Error("Select a valid location");
+  if (!options.statuses.includes(status)) throw new Error("Select a valid availability status");
+  if (!options.equipmentTypes.includes(category)) throw new Error("Select a valid equipment type");
+  if (!options.equipmentNames.includes(displayName)) throw new Error("Select a valid equipment name");
+  if (!options.locations.includes(location)) throw new Error("Select a valid location");
   if (status === "checked-out" && !assignedTo) throw new Error("Enter the user assigned to this equipment");
   if ((status === "infrastructure" || status === "checked-out") && location.toLowerCase() === "stockroom") {
     throw new Error("Infrastructure and checked-out equipment cannot remain in Stockroom");

@@ -2,6 +2,7 @@ import {
   CSV_HEADERS,
   type EquipmentInput,
   type InventoryRecord,
+  type InventoryOptions,
   validateEquipmentInput,
 } from "@/lib/inventory";
 
@@ -107,7 +108,11 @@ function importCell(value: string) {
   return /^'[=+@]/.test(value) || /^'-\D/.test(value) ? value.slice(1) : value;
 }
 
-export function analyzeCsvImport(csvText: string, existing: InventoryRecord[]): ImportAnalysis {
+export function analyzeCsvImport(
+  csvText: string,
+  existing: InventoryRecord[],
+  options: InventoryOptions,
+): ImportAnalysis {
   if (!csvText.trim()) throw new Error("Choose a CSV file containing equipment records");
   if (csvText.length > 2_000_000) throw new Error("The CSV file must be smaller than 2 MB");
 
@@ -151,7 +156,7 @@ export function analyzeCsvImport(csvText: string, existing: InventoryRecord[]): 
         quantity: importCell(values[10]),
         vendor: importCell(values[11]),
         notes: importCell(values[12]),
-      });
+      }, options);
       const key = duplicateKey(input);
       const duplicate = seen.get(key);
       if (duplicate) {
