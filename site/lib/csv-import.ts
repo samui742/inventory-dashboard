@@ -3,6 +3,7 @@ import {
   type EquipmentInput,
   type InventoryRecord,
   type InventoryOptions,
+  meaningfulSerialNumber,
   validateEquipmentInput,
 } from "@/lib/inventory";
 
@@ -75,13 +76,8 @@ function normalized(value: string) {
   return value.trim().replace(/\s+/g, " ").toLowerCase();
 }
 
-function meaningfulSerial(value: string) {
-  const serial = normalized(value);
-  return serial && !["n/a", "na", "none"].includes(serial) ? serial : "";
-}
-
 function duplicateKey(input: EquipmentInput) {
-  const serial = meaningfulSerial(input.serialNumber);
+  const serial = meaningfulSerialNumber(input.serialNumber);
   if (serial) return "serial:" + serial;
   return "record:" + JSON.stringify([
     input.status,

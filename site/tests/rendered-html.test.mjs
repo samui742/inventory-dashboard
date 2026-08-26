@@ -27,7 +27,10 @@ test("ships the Supabase-backed inventory workflow", async () => {
   assert.match(page, /checked-out/);
   assert.match(layout, /Inventory Lookup/);
   assert.match(database, /SUPABASE_SERVICE_ROLE_KEY/);
-  assert.match(await readFile(new URL("app/api/equipment/route.ts", root), "utf8"), /export async function DELETE/);
+  const equipmentRoute = await readFile(new URL("app/api/equipment/route.ts", root), "utf8");
+  assert.match(equipmentRoute, /export async function DELETE/);
+  assert.match(equipmentRoute, /duplicateSerialRecord/);
+  assert.match(equipmentRoute, /status: 409/);
   const importRoute = await readFile(new URL("app/api/import/route.ts", root), "utf8");
   const optionsRoute = await readFile(new URL("app/api/options/route.ts", root), "utf8");
   const managedOptions = await readFile(new URL("lib/managed-options.ts", root), "utf8");
@@ -52,6 +55,7 @@ test("ships the Supabase-backed inventory workflow", async () => {
   assert.match(inventory, /\.\.\/\.\.\/config\/locations\.json/);
   assert.match(schema, /create table if not exists public\.equipment/);
   assert.match(schema, /create table if not exists public\.inventory_options/);
+  assert.match(schema, /prevent_duplicate_equipment_serial/);
   assert.match(schema, /pid text not null default 'n\/a'/);
   assert.match(schema, /mfg_part_number text not null default/);
   assert.match(schema, /enable row level security/);

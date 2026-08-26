@@ -25,6 +25,11 @@ export const DEFAULT_INVENTORY_OPTIONS: InventoryOptions = {
   equipmentNames: [...EQUIPMENT_NAMES],
 };
 
+export function meaningfulSerialNumber(value: string) {
+  const normalized = value.trim().replace(/\s+/g, " ").toLowerCase();
+  return normalized && !["n/a", "na", "none"].includes(normalized) ? normalized : "";
+}
+
 export type InventoryRecord = {
   id: string;
   status: InventoryStatus;
