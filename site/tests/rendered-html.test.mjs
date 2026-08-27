@@ -45,8 +45,11 @@ test("ships the Supabase-backed inventory workflow", async () => {
   assert.match(importRoute, /action === "preview"/);
   assert.match(importRoute, /getInventoryOptions/);
   assert.match(optionsRoute, /export async function POST/);
+  assert.match(optionsRoute, /export async function DELETE/);
+  assert.match(optionsRoute, /Update those records first/);
   assert.match(optionsRoute, /That option already exists/);
   assert.match(managedOptions, /inventory_options/);
+  assert.match(managedOptions, /is_removed/);
   assert.match(csvImport, /serial:/);
   assert.match(csvImport, /existing record ID/);
   assert.match(csvImport, /uploaded row/);
@@ -55,6 +58,7 @@ test("ships the Supabase-backed inventory workflow", async () => {
   assert.match(inventory, /\.\.\/\.\.\/config\/locations\.json/);
   assert.match(schema, /create table if not exists public\.equipment/);
   assert.match(schema, /create table if not exists public\.inventory_options/);
+  assert.match(schema, /is_removed boolean not null default false/);
   assert.match(schema, /prevent_duplicate_equipment_serial/);
   assert.match(schema, /pid text not null default 'n\/a'/);
   assert.match(schema, /mfg_part_number text not null default/);

@@ -180,7 +180,11 @@ dd { margin: 0; font-size: 12px; font-weight: 600; overflow-wrap: anywhere; }
 .option-card details { margin-top: 10px; border-top: 1px solid var(--line); padding-top: 9px; }
 .option-card summary { color: var(--accent); font-size: 9px; font-weight: 700; cursor: pointer; }
 .option-value-list { max-height: 130px; margin-top: 8px; display: flex; align-content: flex-start; flex-wrap: wrap; gap: 5px; overflow-y: auto; }
-.option-value-list span { padding: 4px 6px; border-radius: 4px; background: white; border: 1px solid var(--line); color: var(--muted); font-size: 8px; }
+.option-value { display: inline-flex; align-items: center; border-radius: 4px; background: white; border: 1px solid var(--line); overflow: hidden; }
+.option-value span { padding: 4px 6px; color: var(--muted); font-size: 8px; }
+.option-value button { align-self: stretch; min-width: 23px; padding: 0 6px; border: 0; border-left: 1px solid var(--line); background: #fff; color: #a33; cursor: pointer; font-size: 12px; line-height: 1; }
+.option-value button:hover:not(:disabled) { background: #fee2e2; }
+.option-value button:disabled { cursor: default; opacity: .45; }
 .option-success { min-height: 18px; margin: 12px 0 0; color: #166534; font-size: 11px; font-weight: 700; }
 
 @media (max-width: 850px) { .metric-grid { grid-template-columns: repeat(2, 1fr); } table { min-width: 820px; } }

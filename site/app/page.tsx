@@ -50,14 +50,18 @@ function dateInputValue(value: string) {
   return `${match[3]}-${match[1].padStart(2, "0")}-${match[2].padStart(2, "0")}`;
 }
 
-function newEquipment(): EquipmentInput {
+function newEquipment(options: InventoryOptions = DEFAULT_INVENTORY_OPTIONS): EquipmentInput {
+  const status = options.statuses.includes("available") ? "available" : (options.statuses[0] ?? "");
+  const restricted = status === "checked-out" || status === "infrastructure";
+  const stockroom = options.locations.find((value) => value.toLowerCase() === "stockroom");
+  const nonStockroom = options.locations.find((value) => value.toLowerCase() !== "stockroom");
   return {
-    status: "available",
+    status,
     assignedTo: "",
     displayName: "",
     recordDate: todayString(),
     category: "",
-    location: DEFAULT_INVENTORY_OPTIONS.locations.find((value) => value.toLowerCase() === "stockroom") ?? "",
+    location: restricted ? (nonStockroom ?? "") : (stockroom ?? options.locations[0] ?? ""),
     pid: "n/a",
     mfgPartNumber: "",
     serialNumber: "",
@@ -106,7 +110,7 @@ export default function Home() {
   const [inventoryOptions, setInventoryOptions] = useState<InventoryOptions>(DEFAULT_INVENTORY_OPTIONS);
   const [optionsOpen, setOptionsOpen] = useState(false);
   const [optionDrafts, setOptionDrafts] = useState<Record<InventoryOptionGroup, string>>(emptyOptionDrafts);
-  const [optionSaving, setOptionSaving] = useState<InventoryOptionGroup | "">("");
+  const [optionSaving, setOptionSaving] = useState("");
   const [optionError, setOptionError] = useState("");
   const [optionNotice, setOptionNotice] = useState("");
 
@@ -223,7 +227,7 @@ export default function Home() {
       quantity: record.quantity,
       vendor: record.vendor,
       notes: record.notes,
-    } : newEquipment());
+    } : newEquipment(inventoryOptions));
     setFormError("");
     setDeleteError("");
     setFormOpen(true);
@@ -403,6 +407,36 @@ export default function Home() {
     }
   }
 
+  async function removeOption(group: InventoryOptionGroup, value: string) {
+    const label = group === "statuses" ? statusLabel(value) : value;
+    if (optionSaving || !window.confirm(`Remove "${label}" from this list?`)) return;
+    const busyKey = `${group}:${value}`;
+    setOptionSaving(busyKey);
+    setOptionError("");
+    setOptionNotice("");
+    try {
+      const response = await fetch("/api/options", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ group, value }),
+      });
+      const result = await response.json() as {
+        options?: InventoryOptions;
+        value?: string;
+        error?: string;
+      };
+      if (!response.ok || !result.options || !result.value) {
+        throw new Error(result.error || "The option could not be removed");
+      }
+      setInventoryOptions(result.options);
+      setOptionNotice(label + " was removed.");
+    } catch (error) {
+      setOptionError(error instanceof Error ? error.message : "The option could not be removed");
+    } finally {
+      setOptionSaving("");
+    }
+  }
+
   const statusTabs: Array<[InventoryStatus | "all", string, number]> = [
     ["all", "All", records.length],
     ...statusValues.map((value) => [
@@ -496,13 +530,17 @@ export default function Home() {
       {optionsOpen && <div className="form-layer" role="presentation" onMouseDown={(event) => { if (event.currentTarget === event.target && !optionSaving) setOptionsOpen(false); }}><section className="form-modal options-modal" role="dialog" aria-modal="true" aria-labelledby="options-title">
         <button className="drawer-close" onClick={() => setOptionsOpen(false)} aria-label="Close option manager" disabled={Boolean(optionSaving)}>×</button>
         <p className="eyebrow dark">CONTROLLED LISTS</p><h2 id="options-title">Manage form options</h2>
-        <p className="form-intro">Add values to the required equipment fields. New options are stored in the cloud database and become available immediately.</p>
+        <p className="form-intro">Add or remove values for the required equipment fields. Options currently used by inventory records cannot be removed.</p>
         <div className="options-grid">
           {OPTION_GROUPS.map(({ group, label, placeholder, helper }) => <form className="option-card" key={group} onSubmit={(event) => { event.preventDefault(); void addOption(group); }}>
             <label><span>{label}</span><input required maxLength={group === "statuses" ? 60 : group === "equipmentNames" ? 160 : 120} value={optionDrafts[group]} onChange={(event) => setOptionDrafts((current) => ({ ...current, [group]: event.target.value }))} placeholder={placeholder} /></label>
             <p>{helper}</p>
             <div className="option-card-actions"><span>{inventoryOptions[group].length} current</span><button className="primary-button" type="submit" disabled={Boolean(optionSaving) || !optionDrafts[group].trim()}>{optionSaving === group ? "Adding…" : "Add"}</button></div>
-            <details><summary>View current options</summary><div className="option-value-list">{inventoryOptions[group].map((value) => <span key={value}>{group === "statuses" ? statusLabel(value) : value}</span>)}</div></details>
+            <details><summary>View current options</summary><div className="option-value-list">{inventoryOptions[group].map((value) => {
+              const busyKey = `${group}:${value}`;
+              const valueLabel = group === "statuses" ? statusLabel(value) : value;
+              return <div className="option-value" key={value}><span>{valueLabel}</span><button type="button" onClick={() => void removeOption(group, value)} disabled={Boolean(optionSaving)} aria-label={"Remove " + valueLabel}>{optionSaving === busyKey ? "..." : "x"}</button></div>;
+            })}</div></details>
           </form>)}
         </div>
         <p className="option-success" role="status">{optionNotice}</p>

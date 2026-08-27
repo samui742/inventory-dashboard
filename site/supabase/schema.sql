@@ -26,6 +26,7 @@ create table if not exists public.inventory_options (
     option_group in ('equipmentTypes', 'locations', 'statuses', 'equipmentNames')
   ),
   value text not null check (length(btrim(value)) > 0),
+  is_removed boolean not null default false,
   value_key text generated always as (
     lower(regexp_replace(btrim(value), '\s+', ' ', 'g'))
   ) stored,

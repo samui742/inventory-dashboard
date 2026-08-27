@@ -18,7 +18,12 @@ type ManagedOptionRow = {
   id: number;
   option_group: InventoryOptionGroup;
   value: string;
+  is_removed: boolean;
 };
+
+export function managedOptionKey(value: string) {
+  return value.trim().replace(/\s+/g, " ").toLowerCase();
+}
 
 export function isInventoryOptionGroup(value: string): value is InventoryOptionGroup {
   return (INVENTORY_OPTION_GROUPS as readonly string[]).includes(value);
@@ -43,11 +48,12 @@ export function normalizeManagedOption(group: InventoryOptionGroup, rawValue: un
   return text;
 }
 
-function mergedValues(defaults: string[], additions: string[]) {
+function mergedValues(defaults: string[], rows: ManagedOptionRow[]) {
+  const removed = new Set(rows.filter((row) => row.is_removed).map((row) => managedOptionKey(row.value)));
   const values = new Map<string, string>();
-  [...defaults, ...additions].forEach((value) => {
-    const key = value.trim().toLowerCase();
-    if (key && !values.has(key)) values.set(key, value.trim());
+  [...defaults, ...rows.filter((row) => !row.is_removed).map((row) => row.value)].forEach((value) => {
+    const key = managedOptionKey(value);
+    if (key && !removed.has(key) && !values.has(key)) values.set(key, value.trim());
   });
   return [...values.values()];
 }
@@ -55,7 +61,7 @@ function mergedValues(defaults: string[], additions: string[]) {
 export async function getInventoryOptions(): Promise<InventoryOptions> {
   const { data, error } = await getSupabase()
     .from("inventory_options")
-    .select("id,option_group,value")
+    .select("id,option_group,value,is_removed")
     .order("id");
   if (error) throw error;
 
@@ -63,19 +69,19 @@ export async function getInventoryOptions(): Promise<InventoryOptions> {
   return {
     equipmentTypes: mergedValues(
       DEFAULT_INVENTORY_OPTIONS.equipmentTypes,
-      rows.filter((row) => row.option_group === "equipmentTypes").map((row) => row.value),
+      rows.filter((row) => row.option_group === "equipmentTypes"),
     ),
     locations: mergedValues(
       DEFAULT_INVENTORY_OPTIONS.locations,
-      rows.filter((row) => row.option_group === "locations").map((row) => row.value),
+      rows.filter((row) => row.option_group === "locations"),
     ),
     statuses: mergedValues(
       DEFAULT_INVENTORY_OPTIONS.statuses,
-      rows.filter((row) => row.option_group === "statuses").map((row) => row.value),
+      rows.filter((row) => row.option_group === "statuses"),
     ),
     equipmentNames: mergedValues(
       DEFAULT_INVENTORY_OPTIONS.equipmentNames,
-      rows.filter((row) => row.option_group === "equipmentNames").map((row) => row.value),
+      rows.filter((row) => row.option_group === "equipmentNames"),
     ),
   };
 }
