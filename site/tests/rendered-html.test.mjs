@@ -24,6 +24,7 @@ test("ships the Supabase-backed inventory workflow", async () => {
   assert.match(page, /window\.confirm/);
   assert.match(page, /PID \(optional\)/);
   assert.match(page, /MFG Part number \(optional\)/);
+  assert.match(page, /vendor-options/);
   assert.match(page, /checked-out/);
   assert.match(layout, /Inventory Lookup/);
   assert.match(database, /SUPABASE_SERVICE_ROLE_KEY/);

@@ -184,6 +184,15 @@ export default function Home() {
     return [...values.values()].sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: "base" }));
   }, [records]);
 
+  const vendors = useMemo(() => {
+    const values = new Map<string, string>();
+    records.forEach((record) => {
+      const value = record.vendor.trim();
+      if (value && !values.has(value.toLowerCase())) values.set(value.toLowerCase(), value);
+    });
+    return [...values.values()].sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: "base" }));
+  }, [records]);
+
   const filtered = useMemo(() => {
     const needle = query.trim().toLowerCase();
     return records.filter((record) => {
@@ -589,7 +598,7 @@ export default function Home() {
           <label><span>MFG Part number (optional)</span><input list="mfg-part-number-options" maxLength={160} autoComplete="off" value={form.mfgPartNumber} onChange={(event) => setField("mfgPartNumber", event.target.value)} /><datalist id="mfg-part-number-options">{mfgPartNumbers.map((value) => <option key={value} value={value} />)}</datalist></label>
           <label><span>Serial number (optional)</span><input maxLength={160} value={form.serialNumber} onChange={(event) => setField("serialNumber", event.target.value)} /></label>
           <label><span>Quantity</span><input required type="number" min={1} max={10000} value={form.quantity} onChange={(event) => setField("quantity", Number(event.target.value))} /></label>
-          <label><span>Vendor (optional)</span><input maxLength={120} value={form.vendor} onChange={(event) => setField("vendor", event.target.value)} /></label>
+          <label><span>Vendor (optional)</span><input list="vendor-options" maxLength={120} autoComplete="off" value={form.vendor} onChange={(event) => setField("vendor", event.target.value)} /><datalist id="vendor-options">{vendors.map((value) => <option key={value} value={value} />)}</datalist></label>
           <label className="full-field"><span>Notes (optional)</span><textarea maxLength={1000} rows={3} value={form.notes} onChange={(event) => setField("notes", event.target.value)} /></label>
         </div><p className="form-error" role="alert">{formError}</p><div className="form-actions"><button type="button" className="secondary-button" onClick={() => setFormOpen(false)}>Cancel</button><button type="submit" className="primary-button" disabled={saving}>{saving ? "Saving…" : editingId ? "Save changes" : "Add equipment"}</button></div></form>
       </section></div>}
