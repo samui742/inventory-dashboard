@@ -107,7 +107,8 @@ export async function DELETE(request: Request) {
     return Response.json({ error: "Equipment record was not found" }, { status: 400 });
   }
 
-  const { data, error } = await getSupabase()
+  const supabase = getSupabase();
+  const { data, error } = await supabase
     .from("equipment")
     .delete()
     .eq("id", id)
@@ -122,5 +123,20 @@ export async function DELETE(request: Request) {
     return Response.json({ error: "Equipment record was not found" }, { status: 404 });
   }
 
-  return Response.json({ id: String(data.id) });
+  const { data: remaining, error: verificationError } = await supabase
+    .from("equipment")
+    .select("id")
+    .eq("id", id)
+    .maybeSingle();
+
+  if (verificationError) {
+    console.error("Equipment deletion verification failed", verificationError);
+    return Response.json({ error: "Equipment deletion could not be verified" }, { status: 500 });
+  }
+  if (remaining) {
+    console.error("Equipment delete returned success but the record still exists", { id });
+    return Response.json({ error: "Equipment could not be deleted" }, { status: 500 });
+  }
+
+  return Response.json({ id: String(data.id) }, { headers: { "Cache-Control": "no-store" } });
 }

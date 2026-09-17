@@ -30,6 +30,8 @@ test("ships the Supabase-backed inventory workflow", async () => {
   assert.match(database, /SUPABASE_SERVICE_ROLE_KEY/);
   const equipmentRoute = await readFile(new URL("app/api/equipment/route.ts", root), "utf8");
   assert.match(equipmentRoute, /export async function DELETE/);
+  assert.match(equipmentRoute, /Equipment deletion verification failed/);
+  assert.match(equipmentRoute, /Equipment delete returned success but the record still exists/);
   assert.match(equipmentRoute, /duplicateSerialRecord/);
   assert.match(equipmentRoute, /status: 409/);
   const importRoute = await readFile(new URL("app/api/import/route.ts", root), "utf8");
