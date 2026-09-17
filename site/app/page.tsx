@@ -21,6 +21,30 @@ type CsvImportPreview = {
   rows: ImportRowResult[];
 };
 
+type SearchFilters = {
+  id: string;
+  displayName: string;
+  pid: string;
+  mfgPartNumber: string;
+  serialNumber: string;
+  location: string;
+  assignedTo: string;
+  vendor: string;
+};
+
+type SearchFilterKey = keyof SearchFilters;
+
+const SEARCH_FIELDS: Array<{ key: SearchFilterKey; label: string; placeholder: string }> = [
+  { key: "id", label: "Record ID", placeholder: "Example: 237" },
+  { key: "displayName", label: "Equipment name", placeholder: "Example: XGS12" },
+  { key: "pid", label: "PID", placeholder: "Example: PID-1001" },
+  { key: "mfgPartNumber", label: "MFG part number", placeholder: "Example: 53-0005-01" },
+  { key: "serialNumber", label: "Serial number", placeholder: "Example: ABC123" },
+  { key: "location", label: "Location", placeholder: "Example: Stockroom" },
+  { key: "assignedTo", label: "Assigned user", placeholder: "Example: tuppayok" },
+  { key: "vendor", label: "Vendor", placeholder: "Example: Cisco" },
+];
+
 const OPTION_GROUPS: Array<{
   group: InventoryOptionGroup;
   label: string;
@@ -35,6 +59,19 @@ const OPTION_GROUPS: Array<{
 
 function emptyOptionDrafts(): Record<InventoryOptionGroup, string> {
   return { equipmentTypes: "", locations: "", statuses: "", equipmentNames: "" };
+}
+
+function emptySearchFilters(): SearchFilters {
+  return {
+    id: "",
+    displayName: "",
+    pid: "",
+    mfgPartNumber: "",
+    serialNumber: "",
+    location: "",
+    assignedTo: "",
+    vendor: "",
+  };
 }
 
 function todayString() {
@@ -89,6 +126,8 @@ export default function Home() {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
   const [query, setQuery] = useState("");
+  const [searchFilters, setSearchFilters] = useState<SearchFilters>(emptySearchFilters);
+  const [advancedSearchOpen, setAdvancedSearchOpen] = useState(false);
   const [status, setStatus] = useState<InventoryStatus | "all">("all");
   const [category, setCategory] = useState("All categories");
   const [limit, setLimit] = useState(PAGE_SIZE);
@@ -198,13 +237,29 @@ export default function Home() {
     return records.filter((record) => {
       if (status !== "all" && record.status !== status) return false;
       if (category !== "All categories" && categoryName(record) !== category) return false;
-      if (!needle) return true;
-      return [
+      if (needle && ![
         record.id, record.displayName, record.category, record.location, record.status,
         record.assignedTo, record.pid, record.mfgPartNumber, record.serialNumber, record.vendor, record.notes,
-      ].join(" ").toLowerCase().includes(needle);
+      ].join(" ").toLowerCase().includes(needle)) return false;
+
+      const values: Record<SearchFilterKey, string> = {
+        id: record.id,
+        displayName: record.displayName,
+        pid: record.pid,
+        mfgPartNumber: record.mfgPartNumber,
+        serialNumber: record.serialNumber,
+        location: record.location,
+        assignedTo: record.assignedTo,
+        vendor: record.vendor,
+      };
+      return SEARCH_FIELDS.every(({ key }) => {
+        const fieldQuery = searchFilters[key].trim().toLowerCase();
+        return !fieldQuery || values[key].toLowerCase().includes(fieldQuery);
+      });
     });
-  }, [records, query, status, category]);
+  }, [records, query, searchFilters, status, category]);
+
+  const activeSearchFilterCount = Object.values(searchFilters).filter((value) => value.trim()).length;
 
   const statusValues = useMemo(
     () => Array.from(new Set([...inventoryOptions.statuses, ...records.map((record) => record.status)])),
@@ -216,6 +271,19 @@ export default function Home() {
 
   function selectStatus(value: InventoryStatus | "all") {
     setStatus(value);
+    setCategory("All categories");
+    setLimit(PAGE_SIZE);
+  }
+
+  function setSearchFilter(key: SearchFilterKey, value: string) {
+    setSearchFilters((current) => ({ ...current, [key]: value }));
+    setLimit(PAGE_SIZE);
+  }
+
+  function clearSearchFilters() {
+    setQuery("");
+    setSearchFilters(emptySearchFilters());
+    setStatus("all");
     setCategory("All categories");
     setLimit(PAGE_SIZE);
   }
@@ -472,12 +540,36 @@ export default function Home() {
           <p className="hero-subtitle">Find equipment by PID, MFG part number, serial, location, availability, vendor, or notes.</p>
         </div>
         <div className="search-panel">
-          <label htmlFor="inventory-search">Search all inventory fields</label>
+          <div className="search-panel-heading">
+            <label htmlFor="inventory-search">Search all inventory fields</label>
+            <button
+              type="button"
+              className="search-toggle"
+              onClick={() => setAdvancedSearchOpen((open) => !open)}
+              aria-expanded={advancedSearchOpen}
+              aria-controls="advanced-search"
+            >
+              {advancedSearchOpen ? "Hide field search" : "Advanced search"}
+              {activeSearchFilterCount > 0 && <span>{activeSearchFilterCount}</span>}
+            </button>
+          </div>
           <div className="search-box">
             <span aria-hidden="true">⌕</span>
             <input id="inventory-search" value={query} onChange={(event) => { setQuery(event.target.value); setLimit(PAGE_SIZE); }} placeholder="Try “QSFP-100G”, “FVH291” or “LITEON”" autoComplete="off" />
             {query && <button className="clear-search" onClick={() => setQuery("")} aria-label="Clear search">×</button>}
           </div>
+          {advancedSearchOpen && <div className="advanced-search" id="advanced-search">
+            <div className="advanced-search-heading">
+              <div><strong>Search specific fields</strong><p>Enter one or more values. Records must match every populated field.</p></div>
+              {(activeSearchFilterCount > 0 || query || status !== "all" || category !== "All categories") && <button type="button" className="clear-fields" onClick={clearSearchFilters}>Clear all filters</button>}
+            </div>
+            <div className="advanced-search-grid">
+              {SEARCH_FIELDS.map(({ key, label, placeholder }) => <label key={key}>
+                <span>{label}</span>
+                <input value={searchFilters[key]} onChange={(event) => setSearchFilter(key, event.target.value)} placeholder={placeholder} autoComplete="off" />
+              </label>)}
+            </div>
+          </div>}
         </div>
       </section>
 
@@ -504,7 +596,7 @@ export default function Home() {
 
           {loading ? <div className="loading-state"><span /><p>Loading inventory records…</p></div>
             : loadError ? <div className="empty-state"><strong>Inventory data didn’t load.</strong><p>Refresh the page to try again.</p><button onClick={() => void loadInventory()}>Try again</button></div>
-            : filtered.length === 0 ? <div className="empty-state"><strong>No matching hardware</strong><p>Try another identifier or clear your filters.</p><button onClick={() => { setQuery(""); selectStatus("all"); }}>Clear filters</button></div>
+             : filtered.length === 0 ? <div className="empty-state"><strong>No matching hardware</strong><p>Try another identifier or clear your filters.</p><button onClick={clearSearchFilters}>Clear filters</button></div>
             : <>
               <div className="result-line"><span><strong>{filtered.length}</strong> records</span>{query && <span>matching “{query}”</span>}</div>
               <div className="table-wrap"><table><thead><tr><th>Item</th><th>Identifiers</th><th>Details</th><th>Location</th><th className="qty-col">Qty</th><th>Availability</th><th aria-label="Open details" /></tr></thead><tbody>
