@@ -84,6 +84,8 @@ function duplicateKey(input: EquipmentInput) {
     input.assignedTo,
     input.displayName,
     input.recordDate,
+    input.deployDate,
+    input.calibrationRequired,
     input.category,
     input.location,
     input.pid,
@@ -152,6 +154,8 @@ export function analyzeCsvImport(
         quantity: importCell(values[10]),
         vendor: importCell(values[11]),
         notes: importCell(values[12]),
+        deployDate: importCell(values[13] ?? ""),
+        calibrationRequired: ["true", "1", "yes"].includes(importCell(values[14] ?? "").trim().toLowerCase()),
       }, options);
       const key = duplicateKey(input);
       const duplicate = seen.get(key);

@@ -36,6 +36,8 @@ export type InventoryRecord = {
   assignedTo: string;
   displayName: string;
   recordDate: string;
+  deployDate: string;
+  calibrationRequired: boolean;
   category: string;
   location: string;
   pid: string;
@@ -51,6 +53,7 @@ export type EquipmentInput = Omit<InventoryRecord, "id">;
 export const CSV_HEADERS = [
   "id", "status", "assignedTo", "displayName", "recordDate", "category",
   "location", "pid", "mfgPartNumber", "serialNumber", "quantity", "vendor", "notes",
+  "deployDate", "calibrationRequired",
 ] as const;
 
 export type DatabaseRecord = {
@@ -59,6 +62,8 @@ export type DatabaseRecord = {
   assigned_to: string;
   display_name: string;
   record_date: string;
+  deploy_date: string | null;
+  calibration_required: boolean;
   category: string;
   location: string;
   pid: string;
@@ -70,7 +75,7 @@ export type DatabaseRecord = {
 };
 
 export const INVENTORY_COLUMNS = [
-  "id", "status", "assigned_to", "display_name", "record_date", "category",
+  "id", "status", "assigned_to", "display_name", "record_date", "deploy_date", "calibration_required", "category",
   "location", "pid", "mfg_part_number", "serial_number", "quantity", "vendor", "notes",
 ].join(",");
 
@@ -81,6 +86,8 @@ export function toInventoryRecord(record: DatabaseRecord): InventoryRecord {
     assignedTo: record.assigned_to,
     displayName: record.display_name,
     recordDate: record.record_date,
+    deployDate: record.deploy_date ?? "",
+    calibrationRequired: record.calibration_required,
     category: record.category,
     location: record.location,
     pid: record.pid,
@@ -98,6 +105,8 @@ export function toDatabaseValues(input: EquipmentInput): Omit<DatabaseRecord, "i
     assigned_to: input.assignedTo,
     display_name: input.displayName,
     record_date: input.recordDate,
+    deploy_date: input.deployDate || null,
+    calibration_required: input.calibrationRequired,
     category: input.category,
     location: input.location,
     pid: input.pid,
@@ -119,6 +128,8 @@ export function validateEquipmentInput(
   const assignedTo = String(input.assignedTo ?? "").trim();
   const displayName = String(input.displayName ?? "").trim();
   const recordDate = String(input.recordDate ?? "").trim();
+  const deployDate = String(input.deployDate ?? "").trim();
+  const calibrationRequired = input.calibrationRequired === true;
   const category = String(input.category ?? "").trim();
   const location = String(input.location ?? "").trim();
   const pid = String(input.pid ?? "").trim() || "n/a";
@@ -139,6 +150,9 @@ export function validateEquipmentInput(
   if (!/^\d{4}-\d{2}-\d{2}$/.test(recordDate) || Number.isNaN(Date.parse(`${recordDate}T00:00:00Z`))) {
     throw new Error("Enter a valid record date");
   }
+  if (deployDate && (!/^\d{4}-\d{2}-\d{2}$/.test(deployDate) || Number.isNaN(Date.parse(`${deployDate}T00:00:00Z`)))) {
+    throw new Error("Enter a valid deploy date");
+  }
   if (!Number.isInteger(quantity) || quantity < 1 || quantity > 10000) {
     throw new Error("Quantity must be between 1 and 10,000");
   }
@@ -151,6 +165,8 @@ export function validateEquipmentInput(
     assignedTo: status === "checked-out" ? assignedTo : "",
     displayName,
     recordDate,
+    deployDate,
+    calibrationRequired,
     category,
     location,
     pid,
