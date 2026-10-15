@@ -549,8 +549,6 @@ export default function Home() {
 
       <section className="hero" id="top">
         <div className="hero-copy">
-          <p className="eyebrow">EQUIPMENT MANAGEMENT</p>
-          <h1>Inventory lookup</h1>
           <p className="hero-subtitle">Find equipment by PID, MFG part number, serial, location, availability, vendor, or notes.</p>
         </div>
         <div className="search-panel">
