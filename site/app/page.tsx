@@ -332,6 +332,7 @@ export default function Home() {
 
   async function saveEquipment(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    const wasEditing = Boolean(editingId);
     setSaving(true);
     setFormError("");
     try {
@@ -350,8 +351,10 @@ export default function Home() {
         : [...current, result.record!]);
       setFormOpen(false);
       setEditingId("");
-      setQuery("");
-      selectStatus("all");
+      if (!wasEditing) {
+        setQuery("");
+        selectStatus("all");
+      }
     } catch (error) {
       setFormError(error instanceof Error ? error.message : "Equipment could not be saved");
     } finally {
