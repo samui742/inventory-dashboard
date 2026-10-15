@@ -541,7 +541,7 @@ export default function Home() {
     <main className="app-shell">
       <header className="topbar">
         <a className="brand" href="#top" aria-label="Inventory home">
-          <span className="brand-mark" aria-hidden="true">ID</span>
+          <span className="brand-mark" aria-hidden="true">EDVT</span>
           <span><strong>EDVT Inventory Dashboard</strong></span>
         </a>
         <div className="topbar-meta"><span className="sync-dot" aria-hidden="true" />Cloud database<span className="meta-rule" />Live inventory</div>
