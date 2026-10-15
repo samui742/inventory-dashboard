@@ -3,8 +3,11 @@ import { analyzeCsvImport } from "@/lib/csv-import";
 import { getInventoryOptions } from "@/lib/managed-options";
 import {
   INVENTORY_COLUMNS,
+  LEGACY_INVENTORY_COLUMNS,
+  isMissingOptionalEquipmentColumns,
   type DatabaseRecord,
   toDatabaseValues,
+  toLegacyDatabaseValues,
   toInventoryRecord,
 } from "@/lib/inventory";
 
@@ -21,10 +24,17 @@ async function requestBody(request: Request) {
 }
 
 async function inventoryRecords() {
-  const { data, error } = await getSupabase()
+  const supabase = getSupabase();
+  let { data, error } = await supabase
     .from("equipment")
     .select(INVENTORY_COLUMNS)
     .order("id");
+  if (isMissingOptionalEquipmentColumns(error)) {
+    ({ data, error } = await supabase
+      .from("equipment")
+      .select(LEGACY_INVENTORY_COLUMNS)
+      .order("id"));
+  }
   if (error) throw error;
   return (data as unknown as DatabaseRecord[]).map(toInventoryRecord);
 }
@@ -48,13 +58,22 @@ export async function POST(request: Request) {
       return Response.json({ preview, records: [] });
     }
 
-    const { data, error } = await getSupabase()
+    const supabase = getSupabase();
+    let optionalFieldsSaved = true;
+    let { data, error } = await supabase
       .from("equipment")
       .insert(analysis.readyInputs.map(toDatabaseValues))
       .select(INVENTORY_COLUMNS);
+    if (isMissingOptionalEquipmentColumns(error)) {
+      optionalFieldsSaved = false;
+      ({ data, error } = await supabase
+        .from("equipment")
+        .insert(analysis.readyInputs.map(toLegacyDatabaseValues))
+        .select(LEGACY_INVENTORY_COLUMNS));
+    }
     if (error) throw error;
     const records = (data as unknown as DatabaseRecord[]).map(toInventoryRecord);
-    return Response.json({ preview, records }, { status: 201 });
+    return Response.json({ preview, records, optionalFieldsSaved }, { status: 201 });
   } catch (error) {
     console.error("CSV import failed", error);
     return Response.json({ error: errorMessage(error) }, { status: 400 });

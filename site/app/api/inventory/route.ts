@@ -1,12 +1,25 @@
 import { getSupabase } from "@/db";
-import { INVENTORY_COLUMNS, type DatabaseRecord, toInventoryRecord } from "@/lib/inventory";
+import {
+  INVENTORY_COLUMNS,
+  LEGACY_INVENTORY_COLUMNS,
+  isMissingOptionalEquipmentColumns,
+  type DatabaseRecord,
+  toInventoryRecord,
+} from "@/lib/inventory";
 
 export async function GET() {
   try {
-    const { data, error } = await getSupabase()
+    const supabase = getSupabase();
+    let { data, error } = await supabase
       .from("equipment")
       .select(INVENTORY_COLUMNS)
       .order("id");
+    if (isMissingOptionalEquipmentColumns(error)) {
+      ({ data, error } = await supabase
+        .from("equipment")
+        .select(LEGACY_INVENTORY_COLUMNS)
+        .order("id"));
+    }
     if (error) throw error;
     return Response.json((data as unknown as DatabaseRecord[]).map(toInventoryRecord), {
       headers: { "Cache-Control": "no-store" },

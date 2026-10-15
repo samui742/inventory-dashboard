@@ -3,8 +3,11 @@ import { getInventoryOptions } from "@/lib/managed-options";
 import {
   type DatabaseRecord,
   INVENTORY_COLUMNS,
+  LEGACY_INVENTORY_COLUMNS,
+  isMissingOptionalEquipmentColumns,
   meaningfulSerialNumber,
   toDatabaseValues,
+  toLegacyDatabaseValues,
   toInventoryRecord,
   validateEquipmentInput,
 } from "@/lib/inventory";
@@ -50,11 +53,21 @@ export async function POST(request: Request) {
     return Response.json({ error: errorMessage(error, "Equipment could not be saved") }, { status: 400 });
   }
 
-  const { data, error } = await getSupabase()
+  const supabase = getSupabase();
+  let optionalFieldsSaved = true;
+  let { data, error } = await supabase
     .from("equipment")
     .insert(toDatabaseValues(input))
     .select(INVENTORY_COLUMNS)
     .single();
+  if (isMissingOptionalEquipmentColumns(error)) {
+    optionalFieldsSaved = false;
+    ({ data, error } = await supabase
+      .from("equipment")
+      .insert(toLegacyDatabaseValues(input))
+      .select(LEGACY_INVENTORY_COLUMNS)
+      .single());
+  }
 
   if (error) {
     if (error.code === "23505") return duplicateSerialResponse(input.serialNumber);
@@ -63,7 +76,7 @@ export async function POST(request: Request) {
   }
 
   return Response.json(
-    { record: toInventoryRecord(data as unknown as DatabaseRecord) },
+    { record: toInventoryRecord(data as unknown as DatabaseRecord), optionalFieldsSaved },
     { status: 201 },
   );
 }
@@ -82,12 +95,23 @@ export async function PUT(request: Request) {
     return Response.json({ error: errorMessage(error, "Equipment could not be saved") }, { status: 400 });
   }
 
-  const { data, error } = await getSupabase()
+  const supabase = getSupabase();
+  let optionalFieldsSaved = true;
+  let { data, error } = await supabase
     .from("equipment")
     .update(toDatabaseValues(input))
     .eq("id", id)
     .select(INVENTORY_COLUMNS)
     .maybeSingle();
+  if (isMissingOptionalEquipmentColumns(error)) {
+    optionalFieldsSaved = false;
+    ({ data, error } = await supabase
+      .from("equipment")
+      .update(toLegacyDatabaseValues(input))
+      .eq("id", id)
+      .select(LEGACY_INVENTORY_COLUMNS)
+      .maybeSingle());
+  }
 
   if (error) {
     if (error.code === "23505") return duplicateSerialResponse(input.serialNumber);
@@ -98,7 +122,7 @@ export async function PUT(request: Request) {
     return Response.json({ error: "Equipment record was not found" }, { status: 404 });
   }
 
-  return Response.json({ record: toInventoryRecord(data as unknown as DatabaseRecord) });
+  return Response.json({ record: toInventoryRecord(data as unknown as DatabaseRecord), optionalFieldsSaved });
 }
 
 export async function DELETE(request: Request) {

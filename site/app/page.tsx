@@ -97,6 +97,8 @@ function newEquipment(options: InventoryOptions = DEFAULT_INVENTORY_OPTIONS): Eq
     assignedTo: "",
     displayName: "",
     recordDate: todayString(),
+    deployDate: "",
+    calibrationRequired: false,
     category: "",
     location: restricted ? (nonStockroom ?? "") : (stockroom ?? options.locations[0] ?? ""),
     pid: "n/a",
@@ -137,6 +139,7 @@ export default function Home() {
   const [form, setForm] = useState<EquipmentInput>(newEquipment);
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState("");
+  const [saveNotice, setSaveNotice] = useState("");
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState("");
   const [importOpen, setImportOpen] = useState(false);
@@ -240,6 +243,7 @@ export default function Home() {
       if (needle && ![
         record.id, record.displayName, record.category, record.location, record.status,
         record.assignedTo, record.pid, record.mfgPartNumber, record.serialNumber, record.vendor, record.notes,
+        record.deployDate, record.calibrationRequired ? "calibration required" : "",
       ].join(" ").toLowerCase().includes(needle)) return false;
 
       const values: Record<SearchFilterKey, string> = {
@@ -296,6 +300,8 @@ export default function Home() {
       assignedTo: record.assignedTo,
       displayName: record.displayName.trim(),
       recordDate: dateInputValue(record.recordDate),
+      deployDate: record.deployDate,
+      calibrationRequired: record.calibrationRequired,
       category: record.category,
       location: record.location,
       pid: record.pid,
@@ -336,8 +342,11 @@ export default function Home() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(editingId ? { ...form, id: editingId } : form),
       });
-      const result = await response.json() as { record?: InventoryRecord; error?: string };
+      const result = await response.json() as { record?: InventoryRecord; optionalFieldsSaved?: boolean; error?: string };
       if (!response.ok || !result.record) throw new Error(result.error || "Equipment could not be saved");
+      setSaveNotice(result.optionalFieldsSaved === false
+        ? "Equipment saved, but Deploy date and Calibration Required were not saved because the Supabase migration is pending. After it runs, edit the record and enter these values again."
+        : "");
       setRecords((current) => editingId
         ? current.map((record) => record.id === editingId ? result.record! : record)
         : [...current, result.record!]);
@@ -422,6 +431,7 @@ export default function Home() {
       const result = await response.json() as {
         preview?: CsvImportPreview;
         records?: InventoryRecord[];
+        optionalFieldsSaved?: boolean;
         error?: string;
       };
       if (!response.ok || !result.preview || !result.records) {
@@ -435,6 +445,9 @@ export default function Home() {
       setRecords((current) => [...current, ...result.records!]
         .sort((left, right) => Number(left.id) - Number(right.id)));
       setImportNotice("Imported " + result.records.length + " equipment record" + (result.records.length === 1 ? "" : "s") + ". Duplicate and invalid rows were skipped.");
+      setSaveNotice(result.optionalFieldsSaved === false
+        ? "CSV rows were imported, but Deploy date and Calibration Required are waiting for the Supabase migration."
+        : "");
       setImportOpen(false);
       setImportCsvText("");
       setImportPreview(null);
@@ -587,6 +600,7 @@ export default function Home() {
             <div className="head-actions"><button className="primary-button" onClick={() => openForm()}>+ New equipment</button><button className="secondary-button" onClick={openOptions}>Manage options</button><button className="secondary-button" onClick={openImport}>Import CSV</button><a className="export-link" href="/api/export" download>↓ Export CSV</a></div>
           </div>
           {importNotice && <p className="import-notice" role="status">{importNotice}</p>}
+          {saveNotice && <p className="database-notice" role="status">{saveNotice}</p>}
           <div className="toolbar">
             <div className="status-tabs" aria-label="Availability status">
               {statusTabs.map(([value, label, count]) => <button key={value} className={status === value ? "active" : ""} onClick={() => selectStatus(value)}>{label} <span>{count}</span></button>)}
@@ -622,7 +636,8 @@ export default function Home() {
         <dl>{[
           ["Availability", statusLabel(selected.status)], ["Assigned user", selected.assignedTo], ["Location", selected.location],
           ["PID", selected.pid], ["MFG Part number", selected.mfgPartNumber], ["Serial number", selected.serialNumber], ["Vendor", selected.vendor],
-          ["Record date", selected.recordDate], ["Notes", selected.notes],
+          ["Record date", selected.recordDate], ["Deploy date", selected.deployDate],
+          ["Calibration Required", selected.calibrationRequired ? "Yes" : "No"], ["Notes", selected.notes],
         ].filter(([, value]) => value).map(([label, value]) => <div key={label}><dt>{label}</dt><dd className="preserve-lines">{value}</dd></div>)}</dl>
         <p className="form-error" role="alert">{deleteError}</p>
         <div className="drawer-actions"><button className="danger-button" onClick={() => void deleteEquipment()} disabled={deleting}>{deleting ? "Deleting…" : "Delete item"}</button><button className="primary-button" onClick={() => openForm(selected)} disabled={deleting}>Edit record</button></div>
@@ -652,7 +667,7 @@ export default function Home() {
       {importOpen && <div className="form-layer" role="presentation" onMouseDown={(event) => { if (event.currentTarget === event.target && !importBusy) setImportOpen(false); }}><section className="form-modal import-modal" role="dialog" aria-modal="true" aria-labelledby="import-title">
         <button className="drawer-close" onClick={() => setImportOpen(false)} aria-label="Close CSV import" disabled={importBusy}>×</button>
         <p className="eyebrow dark">BULK ENTRY</p><h2 id="import-title">Import equipment CSV</h2>
-        <p className="form-intro">Use the same 13 columns as inventory.csv. Select a file to check duplicates before importing. Uploaded ID values are ignored; new sequential IDs are assigned by the database.</p>
+        <p className="form-intro">Use the same 15 columns as inventory.csv. Previous 13-column exports are also accepted. Select a file to check duplicates before importing. Uploaded ID values are ignored; new sequential IDs are assigned by the database.</p>
         <div className="import-upload">
           <label className="csv-select-button"><span>{importBusy ? "Checking CSV…" : importFileName ? "Choose another CSV" : "Select CSV to import"}</span><input className="file-input-hidden" type="file" accept=".csv,text/csv" disabled={importBusy} onChange={(event) => void previewCsv(event.target.files?.[0])} /></label>
           <a className="export-link" href="/api/export" download>Download CSV template</a>
@@ -686,6 +701,8 @@ export default function Home() {
           {form.status === "checked-out" && <label className="full-field"><span>Assigned user</span><input required maxLength={120} value={form.assignedTo} onChange={(event) => setField("assignedTo", event.target.value)} placeholder="Enter the person using this equipment" /></label>}
           <label><span>Equipment name</span><select required value={form.displayName} onChange={(event) => setField("displayName", event.target.value)}><option value="">Select a name</option>{inventoryOptions.equipmentNames.map((value) => <option key={value}>{value}</option>)}</select></label>
           <label><span>Record date</span><input required type="date" value={form.recordDate} onChange={(event) => setField("recordDate", event.target.value)} /></label>
+          <label><span>Deploy date</span><input type="date" value={form.deployDate} onChange={(event) => setField("deployDate", event.target.value)} /></label>
+          <label className="checkbox-field"><input type="checkbox" checked={form.calibrationRequired} onChange={(event) => setField("calibrationRequired", event.target.checked)} /><span>Calibration Required</span></label>
           <label><span>PID (optional)</span><input maxLength={160} value={form.pid} onChange={(event) => setField("pid", event.target.value)} placeholder="n/a" /></label>
           <label><span>MFG Part number (optional)</span><input list="mfg-part-number-options" maxLength={160} autoComplete="off" value={form.mfgPartNumber} onChange={(event) => setField("mfgPartNumber", event.target.value)} /><datalist id="mfg-part-number-options">{mfgPartNumbers.map((value) => <option key={value} value={value} />)}</datalist></label>
           <label><span>Serial number (optional)</span><input maxLength={160} value={form.serialNumber} onChange={(event) => setField("serialNumber", event.target.value)} /></label>

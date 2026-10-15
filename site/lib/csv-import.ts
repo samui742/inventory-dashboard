@@ -84,6 +84,8 @@ function duplicateKey(input: EquipmentInput) {
     input.assignedTo,
     input.displayName,
     input.recordDate,
+    input.deployDate,
+    input.calibrationRequired,
     input.category,
     input.location,
     input.pid,
@@ -115,7 +117,9 @@ export function analyzeCsvImport(
   const parsed = parseCsvRows(csvText.replace(/^\uFEFF/, ""));
   if (!parsed.length) throw new Error("The CSV file is empty");
   const headers = parsed[0].map((value) => value.trim());
-  if (headers.length !== CSV_HEADERS.length || headers.some((value, index) => value !== CSV_HEADERS[index])) {
+  const usesLegacyHeaders = headers.length === CSV_HEADERS.length - 2
+    && headers.every((value, index) => value === CSV_HEADERS[index]);
+  if (!usesLegacyHeaders && (headers.length !== CSV_HEADERS.length || headers.some((value, index) => value !== CSV_HEADERS[index]))) {
     throw new Error("Use these CSV columns in this order: " + CSV_HEADERS.join(", "));
   }
 
@@ -136,8 +140,8 @@ export function analyzeCsvImport(
     const displayName = importCell(values[3] ?? "").trim();
     const serialNumber = importCell(values[9] ?? "").trim();
     try {
-      if (values.length !== CSV_HEADERS.length) {
-        throw new Error("Expected " + CSV_HEADERS.length + " columns but found " + values.length);
+      if (values.length !== headers.length) {
+        throw new Error("Expected " + headers.length + " columns but found " + values.length);
       }
       const input = validateEquipmentInput({
         status: importCell(values[1]),
@@ -152,6 +156,8 @@ export function analyzeCsvImport(
         quantity: importCell(values[10]),
         vendor: importCell(values[11]),
         notes: importCell(values[12]),
+        deployDate: importCell(values[13] ?? ""),
+        calibrationRequired: ["true", "1", "yes"].includes(importCell(values[14] ?? "").trim().toLowerCase()),
       }, options);
       const key = duplicateKey(input);
       const duplicate = seen.get(key);

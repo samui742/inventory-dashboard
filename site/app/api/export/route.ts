@@ -1,5 +1,12 @@
 import { getSupabase } from "@/db";
-import { CSV_HEADERS, INVENTORY_COLUMNS, type DatabaseRecord, toInventoryRecord } from "@/lib/inventory";
+import {
+  CSV_HEADERS,
+  INVENTORY_COLUMNS,
+  LEGACY_INVENTORY_COLUMNS,
+  isMissingOptionalEquipmentColumns,
+  type DatabaseRecord,
+  toInventoryRecord,
+} from "@/lib/inventory";
 
 function csvCell(value: unknown) {
   const text = String(value ?? "");
@@ -8,10 +15,17 @@ function csvCell(value: unknown) {
 }
 
 export async function GET() {
-  const { data, error } = await getSupabase()
+  const supabase = getSupabase();
+  let { data, error } = await supabase
     .from("equipment")
     .select(INVENTORY_COLUMNS)
     .order("id");
+  if (isMissingOptionalEquipmentColumns(error)) {
+    ({ data, error } = await supabase
+      .from("equipment")
+      .select(LEGACY_INVENTORY_COLUMNS)
+      .order("id"));
+  }
   if (error) {
     console.error("Inventory export failed", error);
     return Response.json({ error: "Inventory could not be exported" }, { status: 500 });
