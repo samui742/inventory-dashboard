@@ -4,8 +4,6 @@ create table if not exists public.equipment (
   assigned_to text not null default '',
   display_name text not null,
   record_date date not null,
-  deploy_date date,
-  calibration_required boolean not null default false,
   category text not null,
   location text not null,
   pid text not null default 'n/a',
